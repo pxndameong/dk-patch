@@ -168,6 +168,8 @@ def calculate_metrics(df: pd.DataFrame, actual_col: str, pred_col: str):
 
     return {'MAE': mae, 'RMSE': rmse, 'R2': r2}
 
+# --- FUNGSI UNTUK PLOTTING BAR CHART DAN SCATTER PLOT ---
+
 def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_end: int, bulan_end: int, selected_station_name: str):
     """
     Fungsi untuk menampilkan bar chart perbandingan curah hujan bulanan (prediksi vs ground truth)
@@ -188,11 +190,11 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
 
     years_to_load = list(range(tahun_start, tahun_end + 1))
 
+    # --- Pemuatan Data Padanan (Ground Truth) ---
     df_padanan_all = []
     for th in years_to_load:
         df_padanan_all.append(load_padanan_data(th))
         
-    # Filter out empty DataFrames before concat
     df_padanan_all = [df for df in df_padanan_all if not df.empty]
     
     if len(df_padanan_all) == 0:
@@ -208,14 +210,11 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     if is_all_stations:
         df_padanan_stations = df_padanan_full.copy()
         
-        # Karena load_padanan_data sudah menjamin kolom ada, kita hanya perlu check issubset
         if {'latitude', 'longitude'}.issubset(df_padanan_stations.columns):
-            # Normalisasi tipe data float untuk perbandingan
             df_padanan_stations['latitude'] = df_padanan_stations['latitude'].astype(float)
             df_padanan_stations['longitude'] = df_padanan_stations['longitude'].astype(float)
             df_padanan_stations['coord_tuple'] = list(zip(df_padanan_stations['latitude'], df_padanan_stations['longitude']))
             
-            # Filter hanya stasiun yang ada di station_coords
             df_padanan_stations = df_padanan_stations[df_padanan_stations['coord_tuple'].isin(station_coords)].copy()
             df_padanan_stations.drop(columns=['coord_tuple'], inplace=True, errors='ignore')
         else:
@@ -235,7 +234,6 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             st.error("❌ Informasi stasiun tidak ditemukan.")
             return
             
-        # Filter berdasarkan lat/lon stasiun yang dipilih
         df_padanan_filtered = df_padanan_full[
             (df_padanan_full['latitude'].astype(float) == station_info['lat']) &
             (df_padanan_full['longitude'].astype(float) == station_info['lon'])
@@ -263,7 +261,6 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         for th in years_to_load:
             df_pred_all.append(load_data(dataset_name, th))
             
-        # Filter out empty DataFrames before concat
         df_pred_all = [df for df in df_pred_all if not df.empty]
         
         if len(df_pred_all) == 0:
@@ -271,11 +268,17 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         else:
             df_pred_full = pd.concat(df_pred_all, ignore_index=True)
 
+        df_pred_station = pd.DataFrame() # Inisialisasi
+
+        # *** PERBAIKAN UTAMA UNTUK MENGHINDARI KeyError: 'latitude' PADA DF KOSONG ***
+        if df_pred_full.empty:
+             st.warning(f"⚠️ Data Prediksi ({dataset_name}) tidak ditemukan atau kosong untuk rentang waktu yang dipilih.")
+             all_combined_data[dataset_name] = pd.DataFrame()
+             continue # Lanjutkan ke model berikutnya
+
         # Filter/Rata-rata Prediksi
         if is_all_stations:
-            # Karena load_data sudah menjamin kolom ada, kita hanya perlu check issubset
             if {'latitude', 'longitude'}.issubset(df_pred_full.columns):
-                # Normalisasi tipe data float untuk perbandingan
                 df_pred_full['latitude'] = pd.to_numeric(df_pred_full['latitude'], errors='coerce')
                 df_pred_full['longitude'] = pd.to_numeric(df_pred_full['longitude'], errors='coerce')
                 
@@ -298,7 +301,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             if station_info is None:
                 df_pred_filtered = pd.DataFrame()
             else:
-                # Filter berdasarkan lat/lon stasiun yang dipilih
+                # Kolom dijamin ada oleh load_data, jadi operasi pemfilteran aman
                 df_pred_filtered = df_pred_full[
                     (df_pred_full['latitude'].astype(float) == station_info['lat']) &
                     (df_pred_full['longitude'].astype(float) == station_info['lon'])
@@ -311,11 +314,11 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
 
         df_pred_station = df_pred_filtered.copy() if isinstance(df_pred_filtered, pd.DataFrame) else pd.DataFrame()
 
-        # --- PENANGANAN KEYERROR PADA MERGE ---
+        # --- PENANGANAN MERGE ---
         required_pred_cols = ['year', 'month', 'ch_pred']
 
         if not df_pred_station.empty and all(col in df_pred_station.columns for col in required_pred_cols):
-            # Gabungkan data Prediksi dan Aktual (Padanan) untuk perhitungan Metrik dan Scatter Plot
+            # Gabungkan data Prediksi dan Aktual (Padanan)
             df_merged_custom_range = pd.merge(
                 df_pred_station[required_pred_cols],
                 df_padanan_station[['year', 'month', 'rainfall']],
@@ -331,7 +334,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             all_data_for_plot.append(df_pred_plot[['year', 'month', 'Curah Hujan (mm)', 'Tipe Data']])
 
         else:
-            st.warning(f"⚠️ Data Prediksi ({dataset_name}) kosong atau kolom kunci hilang dalam rentang waktu yang dipilih.")
+            st.warning(f"⚠️ Data Prediksi ({dataset_name}) tidak tersedia untuk stasiun atau periode yang dipilih.")
             all_combined_data[dataset_name] = pd.DataFrame()
 
 
@@ -390,8 +393,6 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         st.error("❌ Tidak ada data prediksi yang cukup untuk membuat Scatter Plot.")
         return
 
-    # Hitung jumlah subplot yang dibutuhkan
-    # Jika num_models > 0, buat subplot 1 baris
     fig_scatter, axes = plt.subplots(1, max(1, num_models), figsize=(5 * max(1, num_models), 6)) 
     plt.style.use('ggplot')
 
@@ -406,7 +407,6 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     i = 0
     max_val = 0
     
-    # Handle the case where axes is not iterable (num_models = 1)
     axes_list = [axes] if num_models == 1 else axes
 
     for dataset_name, df_combined in model_data_to_plot.items():
@@ -448,7 +448,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
 
     plt.tight_layout()
     st.pyplot(fig_scatter)
-    # --- Akhir Plot Scatter Plot ---
+# --- Akhir Plot Scatter Plot ---
 
 # Main Streamlit app logic
 st.title("📊 DK Viewer - Tabel Analisis Komparatif")
