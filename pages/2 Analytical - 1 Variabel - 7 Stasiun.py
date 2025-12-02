@@ -15,25 +15,22 @@ st.set_page_config(
 # Menghilangkan warning Streamlit Watchdog
 os.environ["STREAMLIT_WATCHDOG"] = "false"
 
-# --- DEKLARASI URL DASAR BARU ---
-# URL Dasar untuk model W500
-base_url_pred_w500 = "data/5k_epoch/pred/1_var_w500_old"
-# URL Dasar untuk model Standar (Non-W500)
-base_url_pred_w500_new = "data/5k_epoch/pred/1_var_w500_new"
-
-# URL dasar untuk data padanan (sama untuk semua)
-base_url_padanan = "data/5k_epoch/padanan"
+# --- DEKLARASI URL DASAR BARU DAN INFO DATASET ---
+# URL Dasar Utama (sesuaikan jika path root data/5k_epoch/pred berubah)
+# Asumsi path root adalah: 'data/5k_epoch/pred'
+BASE_PATH_PRED_ROOT = "data/5k_epoch/pred"
+base_url_padanan = "data/5k_epoch/padanan" # Tetap sama
 ##
 # Info dataset yang akan dibandingkan (Menggabungkan Standar dan W500)
 dataset_info = {
-    # --- MODEL STANDAR (Menggunakan base_url_pred_w500_new) ---
-    "0 Variabel": {"folder": "0_var", "prefix": "all_data_0var"},
-    "1 Variabel (W500_NEW)": {"folder": "1_var", "prefix": "all_data_1var"},
-    "10 Variabel": {"folder": "10_var", "prefix": "all_data_10var"},
-    "51 Variabel": {"folder": "51_var", "prefix": "all_data_51var"},
+    # Menyimpan path Suffix yang sesuai dengan folder yang dikonfirmasi
+    "0 Variabel": {"path_suffix": "0_var", "prefix": "all_data_0var"},
+    "1 Variabel (W500_NEW)": {"path_suffix": "1_var_w500_new", "prefix": "all_data_1var"},
+    "10 Variabel": {"path_suffix": "10_var", "prefix": "all_data_10var"},
+    "51 Variabel": {"path_suffix": "51_var", "prefix": "all_data_51var"},
 
-    # --- MODEL W500 (Menggunakan base_url_pred_w500) ---
-    "1 Variabel (W500_OLD)": {"folder": "1_var", "prefix": "all_data_1var_w500"},
+    # Perhatikan prefix untuk W500_OLD
+    "1 Variabel (W500_OLD)": {"path_suffix": "1_var_w500_old", "prefix": "all_data_1var_w500"}, 
 }
 
 bulan_dict = {
@@ -62,30 +59,23 @@ station_coords = {(s["lat"], s["lon"]) for s in station_data}
 
 @st.cache_data
 def load_data(dataset_name: str, tahun: int):
-    # --- LOGIKA PENENTUAN BASE URL ---
-    if "W500_OLD" in dataset_name:
-        base_url = base_url_pred_w500
-    else:
-        base_url = base_url_pred_w500_new
-    # --- END LOGIKA PENENTUAN BASE URL ---
-
-    # folder = dataset_info[dataset_name]["folder"] # <--- BARIS INI TIDAK DIPERLUKAN LAGI
+    # --- LOGIKA PENENTUAN BASE URL YANG KONSOLIDASI ---
+    path_suffix = dataset_info[dataset_name]["path_suffix"]
     prefix = dataset_info[dataset_name]["prefix"]
     
-    # PERBAIKAN DI BAWAH: Hapus folder/ dari URL.
-    # Contoh path baru: data/5k_epoch/pred/1_var_w500_new/all_data_1var_2010.parquet
-    url = f"{base_url}/{prefix}_{tahun}.parquet" 
+    # Path penuh: BASE_PATH_PRED_ROOT / path_suffix / prefix_tahun.parquet
+    # Contoh: data/5k_epoch/pred/1_var_w500_new/all_data_1var_2010.parquet
+    url = f"{BASE_PATH_PRED_ROOT}/{path_suffix}/{prefix}_{tahun}.parquet" 
     
     try:
         df = pd.read_parquet(url, engine="pyarrow")
     except Exception as e:
-        # Menampilkan error (untuk debug) dan mengembalikan DF kosong
-        st.error(f"DEBUG GAGAL LOAD {dataset_name} ({url}): {e}") 
+        # st.error(f"DEBUG GAGAL LOAD {dataset_name} ({url}): {e}") 
         return pd.DataFrame()
     
     df = df.convert_dtypes()
     
-    # --- Logika Renaming dan Jaminan Kolom (TETAP SAMA) ---
+    # JAMIN KEBERADAAN KOLOM KOORDINAT UNTUK DATA PREDIKSI
     # 1. LATITUDE
     if 'lat' in df.columns and 'latitude' not in df.columns:
         df = df.rename(columns={'lat': 'latitude'})
@@ -121,7 +111,7 @@ def load_padanan_data(tahun: int):
         df = pd.read_parquet(url, engine="pyarrow")
     except Exception as e:
         # st.warning(f"⚠️ Gagal membaca file padanan: {url}\nError: {e}") 
-        return pd.DataFrame(columns=required_cols) # Kembalikan DataFrame dengan kolom yang diperlukan
+        return pd.DataFrame(columns=required_cols) 
     
     # Logika Renaming
     if 'lon' in df.columns:
@@ -131,10 +121,9 @@ def load_padanan_data(tahun: int):
     if 'idx_new' in df.columns:
         df = df.rename(columns={'idx_new': 'idx'})
 
-    # PERBAIKAN: JAMIN KEBERADAAN required_cols SEBELUM SELECTION
+    # JAMIN KEBERADAAN required_cols SEBELUM SELECTION
     for col in required_cols:
         if col not in df.columns:
-            # Gunakan np.nan untuk kolom numerik yang hilang (misal 'rainfall', 'latitude')
             df[col] = np.nan 
 
     if 'latitude' in df.columns:
@@ -142,7 +131,6 @@ def load_padanan_data(tahun: int):
     if 'longitude' in df.columns:
         df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
 
-    # DataFrame sekarang dijamin memiliki semua required_cols
     return df[required_cols]
 
 # --- FUNGSI UNTUK MENGHITUNG METRIK ---
@@ -171,8 +159,6 @@ def calculate_metrics(df: pd.DataFrame, actual_col: str, pred_col: str):
         r2 = 1 - (ss_residual / ss_total)
 
     return {'MAE': mae, 'RMSE': rmse, 'R2': r2}
-
-# --- FUNGSI UNTUK PLOTTING BAR CHART DAN SCATTER PLOT ---
 
 def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_end: int, bulan_end: int, selected_station_name: str):
     """
@@ -272,13 +258,13 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         else:
             df_pred_full = pd.concat(df_pred_all, ignore_index=True)
 
-        df_pred_station = pd.DataFrame() # Inisialisasi
+        df_pred_station = pd.DataFrame() 
 
-        # *** PERBAIKAN UTAMA UNTUK MENGHINDARI KeyError: 'latitude' PADA DF KOSONG ***
+        # *** PENCEGAHAN ERROR PADA DF KOSONG ***
         if df_pred_full.empty:
              st.warning(f"⚠️ Data Prediksi ({dataset_name}) tidak ditemukan atau kosong untuk rentang waktu yang dipilih.")
              all_combined_data[dataset_name] = pd.DataFrame()
-             continue # Lanjutkan ke model berikutnya
+             continue 
 
         # Filter/Rata-rata Prediksi
         if is_all_stations:
@@ -305,7 +291,6 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             if station_info is None:
                 df_pred_filtered = pd.DataFrame()
             else:
-                # Kolom dijamin ada oleh load_data, jadi operasi pemfilteran aman
                 df_pred_filtered = df_pred_full[
                     (df_pred_full['latitude'].astype(float) == station_info['lat']) &
                     (df_pred_full['longitude'].astype(float) == station_info['lon'])
@@ -338,7 +323,8 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             all_data_for_plot.append(df_pred_plot[['year', 'month', 'Curah Hujan (mm)', 'Tipe Data']])
 
         else:
-            st.warning(f"⚠️ Data Prediksi ({dataset_name}) tidak tersedia untuk stasiun atau periode yang dipilih.")
+            # Peringatan ini ditutup oleh peringatan DF kosong di atas, tapi dipertahankan jika filter stasiun/merge gagal
+            # st.warning(f"⚠️ Data Prediksi ({dataset_name}) tidak tersedia untuk stasiun atau periode yang dipilih.")
             all_combined_data[dataset_name] = pd.DataFrame()
 
 
@@ -454,7 +440,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     st.pyplot(fig_scatter)
 # --- Akhir Plot Scatter Plot ---
 
-# Main Streamlit app logic
+# Main Streamlit app logic (TETAP SAMA)
 st.title("📊 DK Viewer - Tabel Analisis Komparatif")
 
 if 'comparative_data' not in st.session_state:
@@ -532,14 +518,11 @@ if submit:
                 df_main = load_data(dataset_name, th)
                 df_padanan = load_padanan_data(th)
                 
-                # Pastikan kedua DF tidak kosong sebelum mencoba merge
                 if not df_main.empty and not df_padanan.empty:
-                    # Pastikan kolom join ada, karena sudah dijamin di fungsi load
                     df_merged_year = pd.merge(df_main, df_padanan, on=['month', 'year', 'latitude', 'longitude'], how='left')
                     df_merged_year = df_merged_year.drop_duplicates(subset=['latitude', 'longitude', 'month', 'year'])
                     all_filtered.append(df_merged_year)
                 elif not df_main.empty:
-                    # Jika data prediksi ada tapi padanan kosong, tetap masukkan data prediksi
                     all_filtered.append(df_main)
 
 
@@ -549,14 +532,11 @@ if submit:
                 if is_all_stations:
                     df_temp = df_filtered_all.copy()
                     
-                    # Logika Aggregasi Rata-rata Seluruh Stasiun
                     if {'latitude', 'longitude'}.issubset(df_temp.columns):
-                        # Konversi ulang ke float untuk perbandingan set koordinat
                         df_temp['latitude'] = pd.to_numeric(df_temp['latitude'], errors='coerce')
                         df_temp['longitude'] = pd.to_numeric(df_temp['longitude'], errors='coerce')
                         df_temp['coord_tuple'] = list(zip(df_temp['latitude'].astype(float), df_temp['longitude'].astype(float)))
                         
-                        # Filter hanya stasiun yang masuk dalam station_coords
                         if df_temp['coord_tuple'].isin(station_coords).any():
                             df_temp = df_temp[df_temp['coord_tuple'].isin(station_coords)].copy()
                             
@@ -575,7 +555,6 @@ if submit:
                         df_filtered_station = pd.DataFrame()
                 else:
                     station_info = next(s for s in station_data if s["name"] == selected_station_name)
-                    # Filter berdasarkan lat/lon stasiun yang dipilih
                     df_filtered_station = df_filtered_all[
                         (pd.to_numeric(df_filtered_all['latitude'], errors='coerce') == station_info['lat']) &
                         (pd.to_numeric(df_filtered_all['longitude'], errors='coerce') == station_info['lon'])
@@ -591,7 +570,6 @@ if submit:
                     df_filtered_station['squared_error'] = np.nan
 
                 if not df_filtered_station.empty:
-                    # Filter rentang waktu yang spesifik
                     mask = (
                         (df_filtered_station['year'] > tahun_from) |
                         ((df_filtered_station['year'] == tahun_from) & (df_filtered_station['month'] >= bulan_from))
