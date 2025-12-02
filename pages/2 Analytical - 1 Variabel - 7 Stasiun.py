@@ -13,6 +13,7 @@ st.set_page_config(
 )
 
 os.environ["STREAMLIT_WATCHDOG"] = "false"
+
 # --- DEKLARASI URL DASAR BARU ---
 # URL Dasar untuk model W500
 base_url_pred_w500 = "data/5k_epoch/pred/1_var_w500_old"
@@ -25,12 +26,12 @@ base_url_padanan = "data/5k_epoch/padanan"
 dataset_info = {
     # --- MODEL STANDAR (Menggunakan base_url_pred_w500_new) ---
     "0 Variabel": {"folder": "0_var", "prefix": "all_data_0var"},
-    "1 Variabel (W500 NEW)": {"folder": "1_var", "prefix": "all_data_1var"},
+    "1 Variabel (W500_NEW)": {"folder": "1_var", "prefix": "all_data_1var"},
     "10 Variabel": {"folder": "10_var", "prefix": "all_data_10var"},
     "51 Variabel": {"folder": "51_var", "prefix": "all_data_51var"},
 
     # --- MODEL W500 (Menggunakan base_url_pred_w500) ---
-    "1 Variabel (W500 OLD)": {"folder": "1_var", "prefix": "all_data_1var_w500"},
+    "1 Variabel (W500)": {"folder": "1_var", "prefix": "all_data_1var_w500"},
 }
 
 bulan_dict = {
@@ -321,7 +322,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     bar_color_map = {
         'Ground Truth (Rainfall)': 'saddlebrown',
         'Prediksi (0 Variabel)': 'royalblue',
-        'Prediksi (1 Variabel (VIMFC))': 'mediumvioletred',
+        'Prediksi (1 Variabel (W500_NEW))': 'mediumvioletred',
         'Prediksi (1 Variabel (W500))': 'darkorange',
         'Prediksi (10 Variabel)': 'deeppink',
         'Prediksi (51 Variabel)': 'forestgreen'
@@ -367,7 +368,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
 
     scatter_color_map = {
         '0 Variabel': 'royalblue',
-        '1 Variabel (VIMFC)': 'mediumvioletred',
+        '1 Variabel (W500_NEW)': 'mediumvioletred',
         '1 Variabel (W500)': 'darkorange',
         '10 Variabel': 'deeppink',
         '51 Variabel': 'forestgreen'
@@ -660,10 +661,10 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
                 'absolute_error (0 Variabel)': 'midnightblue',
                 'squared_error (0 Variabel)': 'navy', 
                 
-                'ch_pred (1 Variabel (VIMFC))': 'mediumvioletred',
-                'error_bias (1 Variabel (VIMFC))': 'darkmagenta', 
-                'absolute_error (1 Variabel (VIMFC))': 'purple',
-                'squared_error (1 Variabel (VIMFC))': 'darkslategray',
+                'ch_pred (1 Variabel (W500_NEW))': 'mediumvioletred',
+                'error_bias (1 Variabel (W500_NEW))': 'darkmagenta', 
+                'absolute_error (1 Variabel (W500_NEW))': 'purple',
+                'squared_error (1 Variabel (W500_NEW))': 'darkslategray',
 
                 'ch_pred (1 Variabel (W500))': 'darkorange',
                 'error_bias (1 Variabel (W500))': 'peru',
