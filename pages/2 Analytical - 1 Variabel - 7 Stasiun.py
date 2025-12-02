@@ -31,7 +31,7 @@ dataset_info = {
     "51 Variabel": {"folder": "51_var", "prefix": "all_data_51var"},
 
     # --- MODEL W500 (Menggunakan base_url_pred_w500) ---
-    "1 Variabel (W500)": {"folder": "1_var", "prefix": "all_data_1var_w500"},
+    "1 Variabel (W500_OLD)": {"folder": "1_var", "prefix": "all_data_1var_w500"},
 }
 
 bulan_dict = {
@@ -61,7 +61,7 @@ station_coords = {(float(s["lat"]), float(s["lon"])) for s in station_data}
 @st.cache_data
 def load_data(dataset_name: str, tahun: int):
     # --- LOGIKA PENENTUAN BASE URL ---
-    if "W500" in dataset_name:
+    if "W500_OLD" in dataset_name:
         base_url = base_url_pred_w500
     else:
         base_url = base_url_pred_w500_new
@@ -323,7 +323,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         'Ground Truth (Rainfall)': 'saddlebrown',
         'Prediksi (0 Variabel)': 'royalblue',
         'Prediksi (1 Variabel (W500_NEW))': 'mediumvioletred',
-        'Prediksi (1 Variabel (W500))': 'darkorange',
+        'Prediksi (1 Variabel (W500_OLD))': 'darkorange',
         'Prediksi (10 Variabel)': 'deeppink',
         'Prediksi (51 Variabel)': 'forestgreen'
     }
@@ -369,7 +369,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     scatter_color_map = {
         '0 Variabel': 'royalblue',
         '1 Variabel (W500_NEW)': 'mediumvioletred',
-        '1 Variabel (W500)': 'darkorange',
+        '1 Variabel (W500_OLD)': 'darkorange',
         '10 Variabel': 'deeppink',
         '51 Variabel': 'forestgreen'
     }
@@ -666,10 +666,10 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
                 'absolute_error (1 Variabel (W500_NEW))': 'purple',
                 'squared_error (1 Variabel (W500_NEW))': 'darkslategray',
 
-                'ch_pred (1 Variabel (W500))': 'darkorange',
-                'error_bias (1 Variabel (W500))': 'peru',
-                'absolute_error (1 Variabel (W500))': 'chocolate',
-                'squared_error (1 Variabel (W500))': 'sandybrown',
+                'ch_pred (1 Variabel (W500_OLD))': 'darkorange',
+                'error_bias (1 Variabel (W500_OLD))': 'peru',
+                'absolute_error (1 Variabel (W500_OLD))': 'chocolate',
+                'squared_error (1 Variabel (W500_OLD))': 'sandybrown',
                 
                 'ch_pred (10 Variabel)': 'deeppink',
                 'error_bias (10 Variabel)': 'darkred', 
