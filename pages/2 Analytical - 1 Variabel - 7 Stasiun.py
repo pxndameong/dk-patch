@@ -467,7 +467,7 @@ if 'selected_station_name' not in st.session_state:
 with st.sidebar.form("config_form"):
     st.header("⚙️ Konfigurasi")
 
-    year_options = list(range(1985, 2015))
+    year_options = list(range(2010, 2015))
     bulan_options = list(range(1, 13))
 
     display_type = st.radio(
