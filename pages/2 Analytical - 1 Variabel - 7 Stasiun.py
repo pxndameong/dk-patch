@@ -69,19 +69,23 @@ def load_data(dataset_name: str, tahun: int):
         base_url = base_url_pred_w500_new
     # --- END LOGIKA PENENTUAN BASE URL ---
 
-    folder = dataset_info[dataset_name]["folder"]
+    # folder = dataset_info[dataset_name]["folder"] # <--- BARIS INI TIDAK DIPERLUKAN LAGI
     prefix = dataset_info[dataset_name]["prefix"]
-    url = f"{base_url}/{folder}/{prefix}_{tahun}.parquet"
+    
+    # PERBAIKAN DI BAWAH: Hapus folder/ dari URL.
+    # Contoh path baru: data/5k_epoch/pred/1_var_w500_new/all_data_1var_2010.parquet
+    url = f"{base_url}/{prefix}_{tahun}.parquet" 
     
     try:
         df = pd.read_parquet(url, engine="pyarrow")
     except Exception as e:
-        # st.error(f"❌ Gagal baca file: {url}\nError: {e}") 
+        # Menampilkan error (untuk debug) dan mengembalikan DF kosong
+        st.error(f"DEBUG GAGAL LOAD {dataset_name} ({url}): {e}") 
         return pd.DataFrame()
     
     df = df.convert_dtypes()
     
-    # PERBAIKAN: JAMIN KEBERADAAN KOLOM KOORDINAT UNTUK DATA PREDIKSI
+    # --- Logika Renaming dan Jaminan Kolom (TETAP SAMA) ---
     # 1. LATITUDE
     if 'lat' in df.columns and 'latitude' not in df.columns:
         df = df.rename(columns={'lat': 'latitude'})
