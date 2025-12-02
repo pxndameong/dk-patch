@@ -12,6 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
+# Menghilangkan warning Streamlit Watchdog
 os.environ["STREAMLIT_WATCHDOG"] = "false"
 
 # --- DEKLARASI URL DASAR BARU ---
@@ -19,6 +20,7 @@ os.environ["STREAMLIT_WATCHDOG"] = "false"
 base_url_pred_w500 = "data/5k_epoch/pred/1_var_w500_old"
 # URL Dasar untuk model Standar (Non-W500)
 base_url_pred_w500_new = "data/5k_epoch/pred/1_var_w500_new"
+
 # URL dasar untuk data padanan (sama untuk semua)
 base_url_padanan = "data/5k_epoch/padanan"
 ##
@@ -42,12 +44,12 @@ bulan_dict = {
 
 # Data stasiun yang baru
 station_data = [
-    {"name": "Stasiun 218 (Lat: -8, Lon: 113.5)", "lat": -8, "lon": 113.5, "index": 218},
-    {"name": "Stasiun 294 (Lat: -7.5, Lon: 110)", "lat": -7.5, "lon": 110, "index": 294},
+    {"name": "Stasiun 218 (Lat: -8, Lon: 113.5)", "lat": -8.0, "lon": 113.5, "index": 218},
+    {"name": "Stasiun 294 (Lat: -7.5, Lon: 110)", "lat": -7.5, "lon": 110.0, "index": 294},
     {"name": "Stasiun 329 (Lat: -7.25, Lon: 107.5)", "lat": -7.25, "lon": 107.5, "index": 329},
     {"name": "Stasiun 333 (Lat: -7.25, Lon: 108.5)", "lat": -7.25, "lon": 108.5, "index": 333},
-    {"name": "Stasiun 384 (Lat: -7, Lon: 110)", "lat": -7, "lon": 110, "index": 384},
-    {"name": "Stasiun 393 (Lat: -7, Lon: 112.25)", "lat": -7, "lon": 112.25, "index": 393},
+    {"name": "Stasiun 384 (Lat: -7, Lon: 110)", "lat": -7.0, "lon": 110.0, "index": 384},
+    {"name": "Stasiun 393 (Lat: -7, Lon: 112.25)", "lat": -7.0, "lon": 112.25, "index": 393},
     {"name": "Stasiun 505 (Lat: -6.25, Lon: 106.5)", "lat": -6.25, "lon": 106.5, "index": 505},
 ]
 
@@ -56,7 +58,7 @@ station_names = [s["name"] for s in station_data]
 station_names.insert(0, "Rata-Rata Seluruh Stasiun")
 
 # Precompute station coords set for fast filtering (tuples of floats)
-station_coords = {(float(s["lat"]), float(s["lon"])) for s in station_data}
+station_coords = {(s["lat"], s["lon"]) for s in station_data}
 
 @st.cache_data
 def load_data(dataset_name: str, tahun: int):
@@ -79,16 +81,24 @@ def load_data(dataset_name: str, tahun: int):
     
     df = df.convert_dtypes()
     
+    # PERBAIKAN: JAMIN KEBERADAAN KOLOM KOORDINAT UNTUK DATA PREDIKSI
+    # 1. LATITUDE
     if 'lat' in df.columns and 'latitude' not in df.columns:
         df = df.rename(columns={'lat': 'latitude'})
+    elif 'latitude' not in df.columns:
+        df['latitude'] = np.nan 
+
+    # 2. LONGITUDE
     if 'lon' in df.columns and 'longitude' not in df.columns:
         df = df.rename(columns={'lon': 'longitude'})
+    elif 'longitude' not in df.columns:
+        df['longitude'] = np.nan 
     
     if 'latitude' in df.columns:
         df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
     if 'longitude' in df.columns:
         df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
-        
+            
     for col in df.columns:
         if df[col].dtype == "object":
             df[col] = df[col].astype(str)
@@ -101,29 +111,34 @@ def load_padanan_data(tahun: int):
     Fungsi untuk memuat data padanan.
     """
     url = f"{base_url_padanan}/CLEANED_PADANAN_{tahun}.parquet"
+    required_cols = ['month', 'year', 'latitude', 'longitude', 'rainfall', 'idx']
 
     try:
         df = pd.read_parquet(url, engine="pyarrow")
-        if 'lon' in df.columns:
-            df = df.rename(columns={'lon': 'longitude'})
-        if 'lat' in df.columns:
-            df = df.rename(columns={'lat': 'latitude'})
-        if 'idx_new' in df.columns:
-            df = df.rename(columns={'idx_new': 'idx'})
     except Exception as e:
         # st.warning(f"⚠️ Gagal membaca file padanan: {url}\nError: {e}") 
-        return pd.DataFrame()
+        return pd.DataFrame(columns=required_cols) # Kembalikan DataFrame dengan kolom yang diperlukan
+    
+    # Logika Renaming
+    if 'lon' in df.columns:
+        df = df = df.rename(columns={'lon': 'longitude'})
+    if 'lat' in df.columns:
+        df = df.rename(columns={'lat': 'latitude'})
+    if 'idx_new' in df.columns:
+        df = df.rename(columns={'idx_new': 'idx'})
 
-    required_cols = ['month', 'year', 'latitude', 'longitude', 'rainfall', 'idx']
+    # PERBAIKAN: JAMIN KEBERADAAN required_cols SEBELUM SELECTION
     for col in required_cols:
         if col not in df.columns:
-            df[col] = None
+            # Gunakan np.nan untuk kolom numerik yang hilang (misal 'rainfall', 'latitude')
+            df[col] = np.nan 
 
     if 'latitude' in df.columns:
         df['latitude'] = pd.to_numeric(df['latitude'], errors='coerce')
     if 'longitude' in df.columns:
         df['longitude'] = pd.to_numeric(df['longitude'], errors='coerce')
 
+    # DataFrame sekarang dijamin memiliki semua required_cols
     return df[required_cols]
 
 # --- FUNGSI UNTUK MENGHITUNG METRIK ---
@@ -176,6 +191,10 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     df_padanan_all = []
     for th in years_to_load:
         df_padanan_all.append(load_padanan_data(th))
+        
+    # Filter out empty DataFrames before concat
+    df_padanan_all = [df for df in df_padanan_all if not df.empty]
+    
     if len(df_padanan_all) == 0:
         st.error("❌ Tidak ada file padanan ditemukan untuk tahun yang dipilih.")
         return
@@ -188,10 +207,17 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     # 1. Filter/Rata-rata Ground Truth
     if is_all_stations:
         df_padanan_stations = df_padanan_full.copy()
+        
+        # Karena load_padanan_data sudah menjamin kolom ada, kita hanya perlu check issubset
         if {'latitude', 'longitude'}.issubset(df_padanan_stations.columns):
-            df_padanan_stations['coord_tuple'] = list(zip(df_padanan_stations['latitude'].astype(float), df_padanan_stations['longitude'].astype(float)))
+            # Normalisasi tipe data float untuk perbandingan
+            df_padanan_stations['latitude'] = df_padanan_stations['latitude'].astype(float)
+            df_padanan_stations['longitude'] = df_padanan_stations['longitude'].astype(float)
+            df_padanan_stations['coord_tuple'] = list(zip(df_padanan_stations['latitude'], df_padanan_stations['longitude']))
+            
+            # Filter hanya stasiun yang ada di station_coords
             df_padanan_stations = df_padanan_stations[df_padanan_stations['coord_tuple'].isin(station_coords)].copy()
-            df_padanan_stations.drop(columns=['coord_tuple'], inplace=True)
+            df_padanan_stations.drop(columns=['coord_tuple'], inplace=True, errors='ignore')
         else:
             df_padanan_stations = pd.DataFrame(columns=df_padanan_full.columns)
 
@@ -201,21 +227,24 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         else:
             df_padanan_stations['date'] = pd.to_datetime(df_padanan_stations[['year', 'month']].assign(day=1))
             df_padanan_stations = df_padanan_stations[(df_padanan_stations['date'] >= start_date) & (df_padanan_stations['date'] <= end_date)].copy()
-            df_padanan_stations.drop(columns=['date'], inplace=True)
+            df_padanan_stations.drop(columns=['date'], inplace=True, errors='ignore')
             df_padanan_filtered = df_padanan_stations.groupby(['year', 'month']).agg(rainfall=('rainfall', 'mean')).reset_index()
     else:
         station_info = next((s for s in station_data if s["name"] == selected_station_name), None)
         if not station_info:
             st.error("❌ Informasi stasiun tidak ditemukan.")
             return
+            
+        # Filter berdasarkan lat/lon stasiun yang dipilih
         df_padanan_filtered = df_padanan_full[
-            (df_padanan_full['latitude'] == station_info['lat']) &
-            (df_padanan_full['longitude'] == station_info['lon'])
+            (df_padanan_full['latitude'].astype(float) == station_info['lat']) &
+            (df_padanan_full['longitude'].astype(float) == station_info['lon'])
         ].copy()
+        
         if not df_padanan_filtered.empty:
             df_padanan_filtered['date'] = pd.to_datetime(df_padanan_filtered[['year', 'month']].assign(day=1))
             df_padanan_filtered = df_padanan_filtered[(df_padanan_filtered['date'] >= start_date) & (df_padanan_filtered['date'] <= end_date)].copy()
-            df_padanan_filtered.drop(columns=['date'], inplace=True)
+            df_padanan_filtered.drop(columns=['date'], inplace=True, errors='ignore')
 
     df_padanan_station = df_padanan_filtered.copy() if isinstance(df_padanan_filtered, pd.DataFrame) else pd.DataFrame()
 
@@ -233,30 +262,26 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         df_pred_all = []
         for th in years_to_load:
             df_pred_all.append(load_data(dataset_name, th))
+            
+        # Filter out empty DataFrames before concat
+        df_pred_all = [df for df in df_pred_all if not df.empty]
+        
         if len(df_pred_all) == 0:
             df_pred_full = pd.DataFrame()
         else:
             df_pred_full = pd.concat(df_pred_all, ignore_index=True)
 
-
-        # Normalize lat/lon names if necessary
-        if 'lat' in df_pred_full.columns and 'latitude' not in df_pred_full.columns:
-            df_pred_full = df_pred_full.rename(columns={'lat': 'latitude'})
-        if 'lon' in df_pred_full.columns and 'longitude' not in df_pred_full.columns:
-            df_pred_full = df_pred_full.rename(columns={'lon': 'longitude'})
-        # Ensure numeric for lat/lon
-        if 'latitude' in df_pred_full.columns:
-            df_pred_full['latitude'] = pd.to_numeric(df_pred_full['latitude'], errors='coerce')
-        if 'longitude' in df_pred_full.columns:
-            df_pred_full['longitude'] = pd.to_numeric(df_pred_full['longitude'], errors='coerce')
-
-
         # Filter/Rata-rata Prediksi
         if is_all_stations:
+            # Karena load_data sudah menjamin kolom ada, kita hanya perlu check issubset
             if {'latitude', 'longitude'}.issubset(df_pred_full.columns):
+                # Normalisasi tipe data float untuk perbandingan
+                df_pred_full['latitude'] = pd.to_numeric(df_pred_full['latitude'], errors='coerce')
+                df_pred_full['longitude'] = pd.to_numeric(df_pred_full['longitude'], errors='coerce')
+                
                 df_pred_full['coord_tuple'] = list(zip(df_pred_full['latitude'].astype(float), df_pred_full['longitude'].astype(float)))
                 df_pred_stations = df_pred_full[df_pred_full['coord_tuple'].isin(station_coords)].copy()
-                df_pred_stations.drop(columns=['coord_tuple'], inplace=True)
+                df_pred_stations.drop(columns=['coord_tuple'], inplace=True, errors='ignore')
             else:
                 df_pred_stations = pd.DataFrame(columns=df_pred_full.columns)
 
@@ -266,25 +291,27 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             else:
                 df_pred_stations['date'] = pd.to_datetime(df_pred_stations[['year', 'month']].assign(day=1))
                 df_pred_stations = df_pred_stations[(df_pred_stations['date'] >= start_date) & (df_pred_stations['date'] <= end_date)].copy()
-                df_pred_stations.drop(columns=['date'], inplace=True)
+                df_pred_stations.drop(columns=['date'], inplace=True, errors='ignore')
                 df_pred_filtered = df_pred_stations.groupby(['year', 'month']).agg(ch_pred=('ch_pred', 'mean')).reset_index()
         else:
             station_info = next((s for s in station_data if s["name"] == selected_station_name), None)
             if station_info is None:
                 df_pred_filtered = pd.DataFrame()
             else:
+                # Filter berdasarkan lat/lon stasiun yang dipilih
                 df_pred_filtered = df_pred_full[
-                    (df_pred_full['latitude'] == station_info['lat']) &
-                    (df_pred_full['longitude'] == station_info['lon'])
+                    (df_pred_full['latitude'].astype(float) == station_info['lat']) &
+                    (df_pred_full['longitude'].astype(float) == station_info['lon'])
                 ].copy()
+                
                 if not df_pred_filtered.empty:
                     df_pred_filtered['date'] = pd.to_datetime(df_pred_filtered[['year', 'month']].assign(day=1))
                     df_pred_filtered = df_pred_filtered[(df_pred_filtered['date'] >= start_date) & (df_pred_filtered['date'] <= end_date)].copy()
-                    df_pred_filtered.drop(columns=['date'], inplace=True)
+                    df_pred_filtered.drop(columns=['date'], inplace=True, errors='ignore')
 
         df_pred_station = df_pred_filtered.copy() if isinstance(df_pred_filtered, pd.DataFrame) else pd.DataFrame()
 
-        # --- PENANGANAN KEYERROR ---
+        # --- PENANGANAN KEYERROR PADA MERGE ---
         required_pred_cols = ['year', 'month', 'ch_pred']
 
         if not df_pred_station.empty and all(col in df_pred_station.columns for col in required_pred_cols):
@@ -363,7 +390,9 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         st.error("❌ Tidak ada data prediksi yang cukup untuk membuat Scatter Plot.")
         return
 
-    fig_scatter, axes = plt.subplots(1, num_models, figsize=(5 * num_models, 6)) 
+    # Hitung jumlah subplot yang dibutuhkan
+    # Jika num_models > 0, buat subplot 1 baris
+    fig_scatter, axes = plt.subplots(1, max(1, num_models), figsize=(5 * max(1, num_models), 6)) 
     plt.style.use('ggplot')
 
     scatter_color_map = {
@@ -377,6 +406,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     i = 0
     max_val = 0
     
+    # Handle the case where axes is not iterable (num_models = 1)
     axes_list = [axes] if num_models == 1 else axes
 
     for dataset_name, df_combined in model_data_to_plot.items():
@@ -497,12 +527,15 @@ if submit:
             for th in tahun_final:
                 df_main = load_data(dataset_name, th)
                 df_padanan = load_padanan_data(th)
-
+                
+                # Pastikan kedua DF tidak kosong sebelum mencoba merge
                 if not df_main.empty and not df_padanan.empty:
+                    # Pastikan kolom join ada, karena sudah dijamin di fungsi load
                     df_merged_year = pd.merge(df_main, df_padanan, on=['month', 'year', 'latitude', 'longitude'], how='left')
                     df_merged_year = df_merged_year.drop_duplicates(subset=['latitude', 'longitude', 'month', 'year'])
                     all_filtered.append(df_merged_year)
                 elif not df_main.empty:
+                    # Jika data prediksi ada tapi padanan kosong, tetap masukkan data prediksi
                     all_filtered.append(df_main)
 
 
@@ -511,12 +544,20 @@ if submit:
 
                 if is_all_stations:
                     df_temp = df_filtered_all.copy()
+                    
+                    # Logika Aggregasi Rata-rata Seluruh Stasiun
                     if {'latitude', 'longitude'}.issubset(df_temp.columns):
+                        # Konversi ulang ke float untuk perbandingan set koordinat
+                        df_temp['latitude'] = pd.to_numeric(df_temp['latitude'], errors='coerce')
+                        df_temp['longitude'] = pd.to_numeric(df_temp['longitude'], errors='coerce')
                         df_temp['coord_tuple'] = list(zip(df_temp['latitude'].astype(float), df_temp['longitude'].astype(float)))
+                        
+                        # Filter hanya stasiun yang masuk dalam station_coords
                         if df_temp['coord_tuple'].isin(station_coords).any():
                             df_temp = df_temp[df_temp['coord_tuple'].isin(station_coords)].copy()
+                            
                         if 'coord_tuple' in df_temp.columns:
-                            df_temp.drop(columns=['coord_tuple'], inplace=True)
+                            df_temp.drop(columns=['coord_tuple'], inplace=True, errors='ignore')
 
                     aggregation_cols = ['ch_pred']
                     if 'rainfall' in df_temp.columns:
@@ -530,21 +571,23 @@ if submit:
                         df_filtered_station = pd.DataFrame()
                 else:
                     station_info = next(s for s in station_data if s["name"] == selected_station_name)
+                    # Filter berdasarkan lat/lon stasiun yang dipilih
                     df_filtered_station = df_filtered_all[
-                        (df_filtered_all['latitude'] == station_info['lat']) &
-                        (df_filtered_all['longitude'] == station_info['lon'])
+                        (pd.to_numeric(df_filtered_all['latitude'], errors='coerce') == station_info['lat']) &
+                        (pd.to_numeric(df_filtered_all['longitude'], errors='coerce') == station_info['lon'])
                     ].copy()
 
                 if 'rainfall' in df_filtered_station.columns and 'ch_pred' in df_filtered_station.columns and not df_filtered_station.empty:
-                    df_filtered_station['error_bias'] = df_filtered_station['ch_pred'] - df_filtered_station['rainfall']
-                    df_filtered_station['absolute_error'] = abs(df_filtered_station['ch_pred'] - df_filtered_station['rainfall'])
-                    df_filtered_station['squared_error'] = (df_filtered_station['ch_pred'] - df_filtered_station['rainfall'])**2
+                    df_filtered_station['error_bias'] = df_filtered_station['ch_pred'].astype(float) - df_filtered_station['rainfall'].astype(float)
+                    df_filtered_station['absolute_error'] = abs(df_filtered_station['ch_pred'].astype(float) - df_filtered_station['rainfall'].astype(float))
+                    df_filtered_station['squared_error'] = (df_filtered_station['ch_pred'].astype(float) - df_filtered_station['rainfall'].astype(float))**2
                 else:
-                    df_filtered_station['error_bias'] = None
-                    df_filtered_station['absolute_error'] = None
-                    df_filtered_station['squared_error'] = None
+                    df_filtered_station['error_bias'] = np.nan
+                    df_filtered_station['absolute_error'] = np.nan
+                    df_filtered_station['squared_error'] = np.nan
 
                 if not df_filtered_station.empty:
+                    # Filter rentang waktu yang spesifik
                     mask = (
                         (df_filtered_station['year'] > tahun_from) |
                         ((df_filtered_station['year'] == tahun_from) & (df_filtered_station['month'] >= bulan_from))
