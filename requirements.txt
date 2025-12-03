@@ -9,3 +9,4 @@ basemap-data-hires
 scipy
 geopandas
 scikit-learn
+openpyxl
