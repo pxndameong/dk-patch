@@ -479,7 +479,7 @@ with st.sidebar.form("config_form"):
 
     display_type = st.radio(
         "Pilih Tampilan Data:",
-        ["Time Series & Summary", "Bar Chart dan Scatter Plot Tahunan"]
+        ["Time Series and Summary", "Bar Chart and Metrics"]
     )
 
     # --- Konfigurasi Rentang Waktu ---
@@ -491,10 +491,10 @@ with st.sidebar.form("config_form"):
             bulan_options,
             index=0,
             format_func=lambda x: bulan_dict[x],
-            key="bulan_from_ts" if display_type == "Time Series & Summary" else "bulan_from_bar"
+            key="bulan_from_ts" if display_type == "Time Series and Summary" else "bulan_from_bar"
         )
     with col2:
-        tahun_from = st.selectbox("Tahun Awal:", year_options, index=0, key="tahun_from_ts" if display_type == "Time Series & Summary" else "tahun_from_bar")
+        tahun_from = st.selectbox("Tahun Awal:", year_options, index=0, key="tahun_from_ts" if display_type == "Time Series and Summary" else "tahun_from_bar")
 
 
     st.subheader("Sampai")
@@ -505,10 +505,10 @@ with st.sidebar.form("config_form"):
             bulan_options,
             index=len(bulan_options) - 1,
             format_func=lambda x: bulan_dict[x],
-            key="bulan_until_ts" if display_type == "Time Series & Summary" else "bulan_until_bar"
+            key="bulan_until_ts" if display_type == "Time Series and Summary" else "bulan_until_bar"
         )
     with col4:
-        tahun_until = st.selectbox("Tahun Akhir:", year_options, index=len(year_options) - 1, key="tahun_until_ts" if display_type == "Time Series & Summary" else "tahun_until_bar")
+        tahun_until = st.selectbox("Tahun Akhir:", year_options, index=len(year_options) - 1, key="tahun_until_ts" if display_type == "Time Series and Summary" else "tahun_until_bar")
 
     # MODIFIKASI 3: Menggunakan st.multiselect dengan default=station_names (SELECT ALL)
     selected_station_names = st.multiselect("Pilih stasiun:", station_names, default=station_names)
@@ -524,7 +524,7 @@ if submit:
         st.error("❌ Tanggal 'Dari' tidak boleh lebih baru dari tanggal 'Sampai'.")
     elif not selected_station_names:
         st.error("❌ Pilih setidaknya satu stasiun.")
-    elif display_type == "Bar Chart dan Scatter Plot Tahunan":
+    elif display_type == "Bar Chart and Metrics":
         # Gunakan list nama stasiun di sini
         st.session_state.comparative_data = {} 
         plot_comparative_charts_monthly(tahun_from, bulan_from, tahun_until, bulan_until, selected_station_names)
@@ -534,7 +534,7 @@ if submit:
         display_name_msg = "Rata-Rata Seluruh Stasiun" if is_all_stations_selected else (selected_station_names[0] if len(selected_station_names) == 1 else f"Rata-Rata {len(selected_station_names)} Stasiun Dipilih")
         st.success(f"✅ Data berhasil dimuat dan siap untuk Bar Chart dan Scatter Plot untuk rentang **{bulan_dict[bulan_from]} {tahun_from}** hingga **{bulan_dict[bulan_until]} {tahun_until}** untuk {display_name_msg}.")
 
-    else: # Time Series & Summary
+    else: # Time Series and Summary
         tahun_final = list(range(tahun_from, tahun_until + 1))
         
         # MODIFIKASI: Logika penentuan koordinat yang dipilih
@@ -627,8 +627,8 @@ if submit:
         display_name_msg = "Rata-Rata Seluruh Stasiun" if is_all_stations_selected else (selected_station_names[0] if len(selected_station_names) == 1 else f"Rata-Rata {len(selected_station_names)} Stasiun Dipilih")
         st.success(f"✅ Data berhasil dimuat dan siap untuk perbandingan Time Series dari **{bulan_dict[bulan_from]} {tahun_from}** hingga **{bulan_dict[bulan_until]} {tahun_until}** untuk {display_name_msg}.")
 
-# --- Tampilan Time Series & Summary ---
-if st.session_state.comparative_data and st.session_state.comparative_data.keys() and display_type == "Time Series & Summary":
+# --- Tampilan Time Series and Summary ---
+if st.session_state.comparative_data and st.session_state.comparative_data.keys() and display_type == "Time Series and Summary":
     
     # Penentuan label stasiun
     selected_names = st.session_state.selected_station_names
