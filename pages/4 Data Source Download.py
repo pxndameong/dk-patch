@@ -10,14 +10,11 @@ os.environ["STREAMLIT_WATCHDOG"] = "false"
 st.set_page_config(page_title="Download Data Source", page_icon="📥", layout="wide")
 st.title("📥 Download Data Mentah per Stasiun & Variabel")
 
-# --- DEKLARASI URL DASAR BARU DAN INFO DATASET ---
-# URL Dasar Utama (sesuaikan jika path root data/5k_epoch/pred berubah)
+# --- 1. KONFIGURASI PATH & DATASET ---
 BASE_PATH_PRED_ROOT = "data/5k_epoch/pred" 
-base_url_padanan = "data/5k_epoch/padanan" # Tetap sama
 
-# Info dataset yang akan dibandingkan
+# Info dataset yang akan dibandingkan (Pastikan prefix sesuai dengan nama file Anda)
 dataset_info = {
-    # Menyimpan path Suffix yang sesuai dengan folder dan Prefix nama file yang dikonfirmasi
     "0 Variabel": {"path_suffix": "0_var", "prefix": "all_data_0var"},
     "0 Variabel (NEW)": {"path_suffix": "0_var_new", "prefix": "all_data_0var"},
     "1 Variabel (W500_NEW)": {"path_suffix": "1_var_w500_new", "prefix": "all_data_1var"},
@@ -26,18 +23,13 @@ dataset_info = {
     "10 Variabel (NEW)": {"path_suffix": "10_var_new", "prefix": "all_data_10var"},
     "51 Variabel": {"path_suffix": "51_var", "prefix": "all_data_51var"},
 }
-dataset_options = list(dataset_info.keys()) # Untuk st.selectbox
+dataset_options = list(dataset_info.keys())
 
 tahun_options = list(range(2010, 2015))
 bulan_options = ["Januari","Februari","Maret","April","Mei","Juni",
                  "Juli","Agustus","September","Oktober","November","Desember"]
-bulan_dict = {
-    1: "Januari", 2: "Februari", 3: "Maret", 4: "April",
-    5: "Mei", 6: "Juni", 7: "Juli", 8: "Agustus",
-    9: "September", 10: "Oktober", 11: "November", 12: "Desember"
-}
 
-# --- PILIH DATASET & TANGGAL ---
+# --- 2. PILIH DATASET & RENTANG TAHUN ---
 dataset_name = st.selectbox("Pilih Dataset:", dataset_options)
 selected_dataset_config = dataset_info[dataset_name]
 
@@ -51,13 +43,11 @@ with col3:
 with col4:
     tahun_end = st.selectbox("Tahun Akhir:", tahun_options, index=len(tahun_options)-1)
 
-# --- LOAD DATA ---
+# --- 3. FUNGSI LOAD DATA ---
 @st.cache_data
 def load_data(config, start_year, end_year):
-    # Mengambil path_suffix dan prefix dari konfigurasi yang dipilih
     path_suffix = config["path_suffix"]
     prefix = config["prefix"] 
-    
     all_dfs = []
     
     if start_year > end_year:
@@ -65,8 +55,7 @@ def load_data(config, start_year, end_year):
         return pd.DataFrame()
 
     for th in range(start_year, end_year + 1):
-        # *** PERBAIKAN PENTING DI SINI ***
-        # Menggunakan prefix dari dataset_info untuk menyusun nama file
+        # Menyusun nama file menggunakan prefix yang benar
         file_name = f"{prefix}_{th}.parquet"
         file_path = os.path.join(BASE_PATH_PRED_ROOT, path_suffix, file_name)
         
@@ -78,7 +67,7 @@ def load_data(config, start_year, end_year):
             except Exception as e:
                 st.error(f"Gagal membaca file {file_path}: {e}")
         else:
-            st.info(f"File tidak ditemukan: {file_path}") # Memberi tahu user file mana yang hilang
+            st.info(f"File tidak ditemukan: {file_path}")
             
     if all_dfs:
         return pd.concat(all_dfs, ignore_index=True)
@@ -87,23 +76,36 @@ def load_data(config, start_year, end_year):
 
 df = load_data(selected_dataset_config, tahun_start, tahun_end)
 
-# --- DEBUGGING STATUS PEMUATAN DATA ---
+# --- 4. DEBUGGING DAN PERBAIKAN NAMA KOLOM ---
 st.markdown("---")
 st.subheader("💡 Status Pemuatan Data")
+
 if df.empty:
     st.error("Data tidak ditemukan untuk pilihan Dataset & Rentang Tahun ini.")
     st.stop()
-else:
-    st.success(f"Data berhasil dimuat. Total baris: {len(df):,}")
-    st.markdown(f"Kolom yang tersedia: `{', '.join(df.columns)}`")
+
+# --- >>> PERHATIAN: UBAH INI JIKA NAMA KOLOM STASIUN ANDA BERBEDA <<< ---
+# Contoh: Jika di file Parquet Anda bernama 'Station_ID', ganti string di bawah.
+# Jika kolom sudah bernama 'stasiun', biarkan nilainya None (atau ganti dengan 'stasiun')
+NAMA_KOLOM_STASIUN_ASLI = None # Ganti dengan nama kolom yang sebenarnya, misal: 'station_id'
+TARGET_NAMA = 'stasiun'
+
+if NAMA_KOLOM_STASIUN_ASLI and NAMA_KOLOM_STASIUN_ASLI in df.columns:
+    df = df.rename(columns={NAMA_KOLOM_STASIUN_ASLI: TARGET_NAMA})
+    st.warning(f"Kolom '{NAMA_KOLOM_STASIUN_ASLI}' berhasil diganti namanya menjadi '{TARGET_NAMA}'.")
+elif TARGET_NAMA not in df.columns:
+    # Jika 'stasiun' tetap tidak ditemukan
+    st.error(f"Kolom '{TARGET_NAMA}' tidak ditemukan di data.")
+    st.warning(f"Kolom yang tersedia di data: {df.columns.tolist()}")
+    st.stop()
+# --- <<< AKHIR PERHATIAN >>> ---
+
+st.success(f"Data berhasil dimuat. Total baris: {len(df):,}")
+st.markdown(f"Kolom yang digunakan: `{', '.join(df.columns)}`")
 st.markdown("---")
 
-# --- MULTI-SELECT STASIUN & VARIABEL ---
-# Cek Kolom 'stasiun'
-if 'stasiun' not in df.columns:
-    st.error("Kolom 'stasiun' tidak ada di data. Tidak dapat melanjutkan.")
-    st.stop()
 
+# --- 5. MULTI-SELECT STASIUN & VARIABEL ---
 stasiun_options = df['stasiun'].unique().tolist()
 default_stasiun = stasiun_options[:3] if stasiun_options else []
 selected_stasiun = st.multiselect("Pilih Stasiun:", stasiun_options, default=default_stasiun)
@@ -120,7 +122,7 @@ if not selected_vars:
     st.warning("Silakan pilih minimal 1 variabel.")
     st.stop()
 
-# --- KONVERSI EXCEL ---
+# --- 6. FUNGSI KONVERSI EXCEL & DOWNLOAD ---
 def to_excel(df_input):
     output = BytesIO()
     df_input.to_excel(output, index=False)
@@ -128,13 +130,11 @@ def to_excel(df_input):
 
 st.info(f"Jumlah file yang akan di-download: **{len(selected_stasiun) * len(selected_vars)}**")
 
-# --- DOWNLOAD FILE PER KOMBINASI ---
 st.subheader("⬇️ Download Files")
 
 for stasiun_name, var_name in product(selected_stasiun, selected_vars):
     df_filtered = df[df['stasiun'] == stasiun_name][['tahun', 'stasiun', var_name]]
     
-    # Menggunakan nama dataset yang lebih bersih untuk nama file
     dataset_clean_name = dataset_name.replace(' ', '_').replace('(', '').replace(')', '')
     file_name = f"{dataset_clean_name}_{stasiun_name}_{var_name}_{tahun_start}-{tahun_end}.xlsx"
     
@@ -145,7 +145,7 @@ for stasiun_name, var_name in product(selected_stasiun, selected_vars):
         data=excel_data,
         file_name=file_name,
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        key=f"dl_{stasiun_name}_{var_name}"
+        key=f"dl_{stasiun_name}_{var_name}" 
     )
 
 
