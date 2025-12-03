@@ -29,6 +29,7 @@ tahun_options = list(range(2010, 2015))
 bulan_options = ["Januari","Februari","Maret","April","Mei","Juni",
                  "Juli","Agustus","September","Oktober","November","Desember"]
 
+
 # --- 2. PILIH DATASET & RENTANG TAHUN ---
 dataset_name = st.selectbox("Pilih Dataset:", dataset_options)
 selected_dataset_config = dataset_info[dataset_name]
@@ -55,7 +56,6 @@ def load_data(config, start_year, end_year):
         return pd.DataFrame()
 
     for th in range(start_year, end_year + 1):
-        # Menyusun nama file menggunakan prefix yang benar
         file_name = f"{prefix}_{th}.parquet"
         file_path = os.path.join(BASE_PATH_PRED_ROOT, path_suffix, file_name)
         
@@ -67,7 +67,8 @@ def load_data(config, start_year, end_year):
             except Exception as e:
                 st.error(f"Gagal membaca file {file_path}: {e}")
         else:
-            st.info(f"File tidak ditemukan: {file_path}")
+            # st.info(f"File tidak ditemukan: {file_path}") # Nonaktifkan info ini agar tidak terlalu banyak notifikasi
+            pass
             
     if all_dfs:
         return pd.concat(all_dfs, ignore_index=True)
@@ -76,7 +77,7 @@ def load_data(config, start_year, end_year):
 
 df = load_data(selected_dataset_config, tahun_start, tahun_end)
 
-# --- 4. DEBUGGING DAN PERBAIKAN NAMA KOLOM ---
+# --- 4. DEBUGGING DAN PEMBENTUKAN ID STASIUN (PERBAIKAN UTAMA) ---
 st.markdown("---")
 st.subheader("💡 Status Pemuatan Data")
 
@@ -84,33 +85,34 @@ if df.empty:
     st.error("Data tidak ditemukan untuk pilihan Dataset & Rentang Tahun ini.")
     st.stop()
 
-# --- >>> PERHATIAN: UBAH INI JIKA NAMA KOLOM STASIUN ANDA BERBEDA <<< ---
-# Contoh: Jika di file Parquet Anda bernama 'Station_ID', ganti string di bawah.
-# Jika kolom sudah bernama 'stasiun', biarkan nilainya None (atau ganti dengan 'stasiun')
-NAMA_KOLOM_STASIUN_ASLI = None # Ganti dengan nama kolom yang sebenarnya, misal: 'station_id'
-TARGET_NAMA = 'stasiun'
-
-if NAMA_KOLOM_STASIUN_ASLI and NAMA_KOLOM_STASIUN_ASLI in df.columns:
-    df = df.rename(columns={NAMA_KOLOM_STASIUN_ASLI: TARGET_NAMA})
-    st.warning(f"Kolom '{NAMA_KOLOM_STASIUN_ASLI}' berhasil diganti namanya menjadi '{TARGET_NAMA}'.")
-elif TARGET_NAMA not in df.columns:
-    # Jika 'stasiun' tetap tidak ditemukan
-    st.error(f"Kolom '{TARGET_NAMA}' tidak ditemukan di data.")
-    st.warning(f"Kolom yang tersedia di data: {df.columns.tolist()}")
+# Memastikan kolom yang dibutuhkan ada
+REQUIRED_COLS = ['latitude', 'longitude']
+if not all(col in df.columns for col in REQUIRED_COLS):
+    st.error(f"Kolom penting ('latitude' atau 'longitude') hilang. Kolom yang tersedia: {df.columns.tolist()}")
     st.stop()
-# --- <<< AKHIR PERHATIAN >>> ---
+    
+# *** MEMBUAT KOLOM 'ID_Stasiun' BARU ***
+# Menggabungkan latitude dan longitude menjadi satu string unik untuk Multiselect
+df['ID_Stasiun'] = 'Lat: ' + df['latitude'].astype(str) + ', Lon: ' + df['longitude'].astype(str)
+# Mengganti nama kolom untuk konsistensi di sisa kode
+df = df.rename(columns={'ID_Stasiun': 'stasiun'})
 
 st.success(f"Data berhasil dimuat. Total baris: {len(df):,}")
+st.info(f"Kolom 'stasiun' telah dibuat dari 'latitude' dan 'longitude'.")
 st.markdown(f"Kolom yang digunakan: `{', '.join(df.columns)}`")
 st.markdown("---")
 
 
 # --- 5. MULTI-SELECT STASIUN & VARIABEL ---
+# Sekarang kolom 'stasiun' sudah ada
 stasiun_options = df['stasiun'].unique().tolist()
 default_stasiun = stasiun_options[:3] if stasiun_options else []
-selected_stasiun = st.multiselect("Pilih Stasiun:", stasiun_options, default=default_stasiun)
+selected_stasiun = st.multiselect("Pilih Stasiun (berdasarkan Lat/Lon):", stasiun_options, default=default_stasiun)
 
-var_options = [c for c in df.columns if c not in ['stasiun','tahun']]
+# Variabel yang di-exclude adalah kolom baru kita, ditambah kolom temporal dan ID
+EXCLUDED_COLS = ['stasiun','tahun', 'longitude', 'latitude', 'year', 'month']
+var_options = [c for c in df.columns if c not in EXCLUDED_COLS]
+
 default_vars = var_options[:3] if var_options else []
 selected_vars = st.multiselect("Pilih Variabel:", var_options, default=default_vars)
 
@@ -133,10 +135,17 @@ st.info(f"Jumlah file yang akan di-download: **{len(selected_stasiun) * len(sele
 st.subheader("⬇️ Download Files")
 
 for stasiun_name, var_name in product(selected_stasiun, selected_vars):
-    df_filtered = df[df['stasiun'] == stasiun_name][['tahun', 'stasiun', var_name]]
+    # Memfilter data hanya berdasarkan stasiun yang dipilih
+    df_filtered = df[df['stasiun'] == stasiun_name].copy()
     
+    # Memilih kolom untuk diekspor (hanya kolom yang relevan)
+    cols_to_export = ['tahun', 'longitude', 'latitude', var_name]
+    df_filtered = df_filtered[cols_to_export]
+    
+    # Membersihkan nama file
     dataset_clean_name = dataset_name.replace(' ', '_').replace('(', '').replace(')', '')
-    file_name = f"{dataset_clean_name}_{stasiun_name}_{var_name}_{tahun_start}-{tahun_end}.xlsx"
+    stasiun_clean_name = stasiun_name.replace(':', '').replace('.', '_').replace(', ', '_')
+    file_name = f"{dataset_clean_name}_{stasiun_clean_name}_{var_name}_{tahun_start}-{tahun_end}.xlsx"
     
     excel_data = to_excel(df_filtered)
     
