@@ -384,7 +384,8 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         st.error("❌ Tidak ada data prediksi yang cukup untuk membuat Scatter Plot.")
         return
 
-    plt.subplots(2, 3, figsize=(15, 10))
+    fig_scatter, axes = plt.subplots(2, 3, figsize=(15, 10))
+    axes = axes.flatten()  # ← ini WAJIB supaya 'axes' jadi list 1D
     plt.style.use('ggplot')
 
     scatter_color_map = {
