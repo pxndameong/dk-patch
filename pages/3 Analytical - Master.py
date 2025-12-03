@@ -51,9 +51,9 @@ station_data = [
     {"name": "Stasiun 505 (Lat: -6.25, Lon: 106.5)", "lat": -6.25, "lon": 106.5, "index": 505},
 ]
 
-# Modifikasi: Tambahkan opsi "Rata-Rata Seluruh Stasiun"
+# MODIFIKASI 1: Hapus opsi "Rata-Rata Seluruh Stasiun" dari daftar
 station_names = [s["name"] for s in station_data]
-station_names.insert(0, "Rata-Rata Seluruh Stasiun")
+# station_names.insert(0, "Rata-Rata Seluruh Stasiun") # Baris ini dihapus
 
 # Precompute station coords set for fast filtering (tuples of floats)
 station_coords = {(s["lat"], s["lon"]) for s in station_data}
@@ -169,27 +169,27 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     """
     
     # LOGIKA PENENTUAN LABEL JUDUL BERDASARKAN SELEKSI
-    if "Rata-Rata Seluruh Stasiun" in selected_station_names:
+    if not selected_station_names:
+        st.error("❌ Pilih setidaknya satu stasiun untuk ditampilkan.")
+        return
+        
+    # MODIFIKASI: Karena opsi 'Rata-Rata Seluruh Stasiun' dihapus, is_all_stations didefinisikan sebagai True 
+    # hanya jika SEMUA stasiun yang tersedia dipilih, atau jika ada lebih dari 1 stasiun.
+    is_all_stations_selected = set(selected_station_names) == set(station_names)
+    is_multiple_stations = len(selected_station_names) > 1
+
+    if is_all_stations_selected:
         display_name = "Rata-Rata Seluruh Stasiun"
-        # Gunakan semua stasiun yang tersedia untuk perhitungan
         coords_to_filter = station_coords
-        is_all_stations = True
-    elif len(selected_station_names) == 1:
-        display_name = selected_station_names[0]
-        # Ambil koordinat stasiun tunggal
-        station_info = next((s for s in station_data if s["name"] == selected_station_names[0]), None)
-        coords_to_filter = {(station_info['lat'], station_info['lon'])} if station_info else set()
-        is_all_stations = False
-    elif len(selected_station_names) > 1:
+    elif is_multiple_stations:
         display_name = f"Rata-Rata {len(selected_station_names)} Stasiun Dipilih"
-        # Ambil koordinat untuk stasiun-stasiun yang dipilih
         coords_to_filter = {
             (s['lat'], s['lon']) for s in station_data if s['name'] in selected_station_names
         }
-        is_all_stations = True # Treat multiple selections as an average set
-    else:
-        st.error("❌ Pilih setidaknya satu stasiun untuk ditampilkan.")
-        return
+    else: # Hanya 1 stasiun dipilih
+        display_name = selected_station_names[0]
+        station_info = next((s for s in station_data if s["name"] == selected_station_names[0]), None)
+        coords_to_filter = {(station_info['lat'], station_info['lon'])} if station_info else set()
 
     if not coords_to_filter:
          st.error("❌ Informasi koordinat stasiun tidak ditemukan.")
@@ -224,7 +224,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     start_date = pd.to_datetime(f"{tahun_start}-{bulan_start}-01")
     end_date = pd.to_datetime(f"{tahun_end}-{bulan_end}-01")
 
-    # 1. Filter/Rata-rata Ground Truth (LOGIKA MODIFIKASI INI HANYA UNTUK SATU ATAU BANYAK STASIUN)
+    # 1. Filter/Rata-rata Ground Truth
     df_padanan_stations = df_padanan_full.copy()
     
     if {'latitude', 'longitude'}.issubset(df_padanan_stations.columns):
@@ -245,7 +245,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         df_padanan_stations['date'] = pd.to_datetime(df_padanan_stations[['year', 'month']].assign(day=1))
         df_padanan_stations = df_padanan_stations[(df_padanan_stations['date'] >= start_date) & (df_padanan_stations['date'] <= end_date)].copy()
         df_padanan_stations.drop(columns=['date'], inplace=True, errors='ignore')
-        # SELALU GROUPBY DAN AGG UNTUK MENDAPATKAN RATA-RATA BULANAN (WALAU HANYA 1 STASIUN)
+        # SELALU GROUPBY DAN AGG UNTUK MENDAPATKAN RATA-RATA BULANAN
         df_padanan_filtered = df_padanan_stations.groupby(['year', 'month']).agg(rainfall=('rainfall', 'mean')).reset_index()
 
     df_padanan_station = df_padanan_filtered.copy() if isinstance(df_padanan_filtered, pd.DataFrame) else pd.DataFrame()
@@ -280,7 +280,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
              all_combined_data[dataset_name] = pd.DataFrame()
              continue 
 
-        # Filter/Rata-rata Prediksi (LOGIKA MODIFIKASI INI HANYA UNTUK SATU ATAU BANYAK STASIUN)
+        # Filter/Rata-rata Prediksi
         if {'latitude', 'longitude'}.issubset(df_pred_full.columns):
             df_pred_full['latitude'] = pd.to_numeric(df_pred_full['latitude'], errors='coerce')
             df_pred_full['longitude'] = pd.to_numeric(df_pred_full['longitude'], errors='coerce')
@@ -300,7 +300,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             df_pred_stations['date'] = pd.to_datetime(df_pred_stations[['year', 'month']].assign(day=1))
             df_pred_stations = df_pred_stations[(df_pred_stations['date'] >= start_date) & (df_pred_stations['date'] <= end_date)].copy()
             df_pred_stations.drop(columns=['date'], inplace=True, errors='ignore')
-            # SELALU GROUPBY DAN AGG UNTUK MENDAPATKAN RATA-RATA BULANAN (WALAU HANYA 1 STASIUN)
+            # SELALU GROUPBY DAN AGG UNTUK MENDAPATKAN RATA-RATA BULANAN
             df_pred_filtered = df_pred_stations.groupby(['year', 'month']).agg(ch_pred=('ch_pred', 'mean')).reset_index()
 
         df_pred_station = df_pred_filtered.copy() if isinstance(df_pred_filtered, pd.DataFrame) else pd.DataFrame()
@@ -325,8 +325,6 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
             all_data_for_plot.append(df_pred_plot[['year', 'month', 'Curah Hujan (mm)', 'Tipe Data']])
 
         else:
-            # Peringatan ini ditutup oleh peringatan DF kosong di atas, tapi dipertahankan jika filter stasiun/merge gagal
-            # st.warning(f"⚠️ Data Prediksi ({dataset_name}) tidak tersedia untuk stasiun atau periode yang dipilih.")
             all_combined_data[dataset_name] = pd.DataFrame()
 
 
@@ -389,7 +387,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
 
     # Penyesuaian layout subplot agar tidak kosong
     if num_models <= 4:
-        cols = num_models
+        cols = num_models if num_models > 0 else 1
         rows = 1
         figsize = (5 * cols, 5)
     else:
@@ -469,9 +467,9 @@ if 'comparative_data' not in st.session_state:
     st.session_state.comparative_data = None
 if 'combinations' not in st.session_state:
     st.session_state.combinations = []
-# MODIFIKASI: selected_station_names sekarang adalah list
+# MODIFIKASI 2: selected_station_names diinisialisasi sebagai list kosong
 if 'selected_station_names' not in st.session_state:
-    st.session_state.selected_station_names = [station_names[0]]
+    st.session_state.selected_station_names = station_names # Default ke semua stasiun
 
 with st.sidebar.form("config_form"):
     st.header("⚙️ Konfigurasi")
@@ -512,8 +510,8 @@ with st.sidebar.form("config_form"):
     with col4:
         tahun_until = st.selectbox("Tahun Akhir:", year_options, index=len(year_options) - 1, key="tahun_until_ts" if display_type == "Time Series & Summary" else "tahun_until_bar")
 
-    # MODIFIKASI UTAMA: Menggunakan st.multiselect untuk stasiun
-    selected_station_names = st.multiselect("Pilih stasiun:", station_names, default=[station_names[0]])
+    # MODIFIKASI 3: Menggunakan st.multiselect dengan default=station_names (SELECT ALL)
+    selected_station_names = st.multiselect("Pilih stasiun:", station_names, default=station_names)
     st.session_state.selected_station_names = selected_station_names
 
     submit = st.form_submit_button("🚀 Submit konfigurasi dan bandingkan")
@@ -525,21 +523,23 @@ if submit:
     if from_date_tuple > until_date_tuple:
         st.error("❌ Tanggal 'Dari' tidak boleh lebih baru dari tanggal 'Sampai'.")
     elif not selected_station_names:
-        st.error("❌ Pilih setidaknya satu stasiun atau 'Rata-Rata Seluruh Stasiun'.")
+        st.error("❌ Pilih setidaknya satu stasiun.")
     elif display_type == "Bar Chart dan Scatter Plot Tahunan":
         # Gunakan list nama stasiun di sini
         st.session_state.comparative_data = {} 
         plot_comparative_charts_monthly(tahun_from, bulan_from, tahun_until, bulan_until, selected_station_names)
         
-        display_name_msg = "Rata-Rata Seluruh Stasiun" if "Rata-Rata Seluruh Stasiun" in selected_station_names else (selected_station_names[0] if len(selected_station_names) == 1 else f"Rata-Rata {len(selected_station_names)} Stasiun Dipilih")
+        # Penentuan label untuk pesan sukses
+        is_all_stations_selected = set(selected_station_names) == set(station_names)
+        display_name_msg = "Rata-Rata Seluruh Stasiun" if is_all_stations_selected else (selected_station_names[0] if len(selected_station_names) == 1 else f"Rata-Rata {len(selected_station_names)} Stasiun Dipilih")
         st.success(f"✅ Data berhasil dimuat dan siap untuk Bar Chart dan Scatter Plot untuk rentang **{bulan_dict[bulan_from]} {tahun_from}** hingga **{bulan_dict[bulan_until]} {tahun_until}** untuk {display_name_msg}.")
 
     else: # Time Series & Summary
         tahun_final = list(range(tahun_from, tahun_until + 1))
-        # MODIFIKASI: Logika penentuan filter
-        is_all_stations = "Rata-Rata Seluruh Stasiun" in selected_station_names
+        
+        # MODIFIKASI: Logika penentuan koordinat yang dipilih
         selected_coords = {
-            (s['lat'], s['lon']) for s in station_data if s['name'] in selected_station_names or is_all_stations
+            (s['lat'], s['lon']) for s in station_data if s['name'] in selected_station_names
         }
 
         filtered_data_dict = {}
@@ -554,7 +554,6 @@ if submit:
                 if not df_main.empty and not df_padanan.empty:
                     # Gabungkan dengan padanan
                     df_merged_year = pd.merge(df_main, df_padanan, on=['month', 'year', 'latitude', 'longitude'], how='left', suffixes=('_pred', '_actual'))
-                    # Pastikan kolom prediksi curah hujan tetap bernama 'ch_pred'
                     if 'ch_pred_pred' in df_merged_year.columns:
                         df_merged_year = df_merged_year.rename(columns={'ch_pred_pred': 'ch_pred'})
                     
@@ -568,7 +567,7 @@ if submit:
                 df_filtered_all = pd.concat(all_filtered, ignore_index=True)
                 df_temp = df_filtered_all.copy()
                 
-                # MODIFIKASI: Logika filter dan agregasi yang dipersatukan
+                # Logika filter dan agregasi yang dipersatukan
                 if {'latitude', 'longitude'}.issubset(df_temp.columns):
                     df_temp['latitude'] = pd.to_numeric(df_temp['latitude'], errors='coerce')
                     df_temp['longitude'] = pd.to_numeric(df_temp['longitude'], errors='coerce')
@@ -583,7 +582,7 @@ if submit:
                     if 'coord_tuple' in df_temp.columns:
                         df_temp.drop(columns=['coord_tuple'], inplace=True, errors='ignore')
                 
-                # AGGREGASI RATA-RATA BULANAN (untuk 1 stasiun, banyak stasiun, atau semua stasiun)
+                # AGGREGASI RATA-RATA BULANAN
                 aggregation_cols = ['ch_pred']
                 if 'rainfall' in df_temp.columns:
                     aggregation_cols.append('rainfall')
@@ -595,7 +594,7 @@ if submit:
                 else:
                     df_filtered_station = pd.DataFrame()
                     
-                # PERHITUNGAN METRIK (diterapkan setelah agregasi)
+                # PERHITUNGAN METRIK
                 if 'rainfall' in df_filtered_station.columns and 'ch_pred' in df_filtered_station.columns and not df_filtered_station.empty:
                     df_filtered_station['error_bias'] = df_filtered_station['ch_pred'].astype(float) - df_filtered_station['rainfall'].astype(float)
                     df_filtered_station['absolute_error'] = abs(df_filtered_station['ch_pred'].astype(float) - df_filtered_station['rainfall'].astype(float))
@@ -624,19 +623,22 @@ if submit:
 
         st.session_state.comparative_data = filtered_data_dict
         
-        display_name_msg = "Rata-Rata Seluruh Stasiun" if "Rata-Rata Seluruh Stasiun" in selected_station_names else (selected_station_names[0] if len(selected_station_names) == 1 else f"Rata-Rata {len(selected_station_names)} Stasiun Dipilih")
+        is_all_stations_selected = set(selected_station_names) == set(station_names)
+        display_name_msg = "Rata-Rata Seluruh Stasiun" if is_all_stations_selected else (selected_station_names[0] if len(selected_station_names) == 1 else f"Rata-Rata {len(selected_station_names)} Stasiun Dipilih")
         st.success(f"✅ Data berhasil dimuat dan siap untuk perbandingan Time Series dari **{bulan_dict[bulan_from]} {tahun_from}** hingga **{bulan_dict[bulan_until]} {tahun_until}** untuk {display_name_msg}.")
 
 # --- Tampilan Time Series & Summary ---
 if st.session_state.comparative_data and st.session_state.comparative_data.keys() and display_type == "Time Series & Summary":
     
-    # MODIFIKASI: Penentuan label berdasarkan jumlah stasiun yang dipilih
-    if "Rata-Rata Seluruh Stasiun" in st.session_state.selected_station_names:
+    # Penentuan label stasiun
+    selected_names = st.session_state.selected_station_names
+    is_all_stations_selected = set(selected_names) == set(station_names)
+    if is_all_stations_selected:
         current_station_name = "Rata-Rata Seluruh Stasiun"
-    elif len(st.session_state.selected_station_names) == 1:
-        current_station_name = st.session_state.selected_station_names[0]
-    elif len(st.session_state.selected_station_names) > 1:
-        current_station_name = f"Rata-Rata {len(st.session_state.selected_station_names)} Stasiun Dipilih"
+    elif len(selected_names) == 1:
+        current_station_name = selected_names[0]
+    elif len(selected_names) > 1:
+        current_station_name = f"Rata-Rata {len(selected_names)} Stasiun Dipilih"
     else:
         current_station_name = "Stasiun Tidak Dipilih"
         
@@ -701,6 +703,7 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
 
         dfs_to_plot = []
 
+        # Logika untuk Ground Truth (Rainfall)
         if is_rainfall_selected and selected_models:
             first_model = selected_models[0]
             df_rainfall = st.session_state.comparative_data.get(first_model)
@@ -711,21 +714,17 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
                 rainfall_df['Metric'] = 'rainfall'
                 dfs_to_plot.append(rainfall_df)
 
+        # Logika untuk Prediksi dan Error Metrik
         for model_name in selected_models:
             df = st.session_state.comparative_data.get(model_name, pd.DataFrame())
-            if not df.empty and (other_metrics or ('rainfall' in metrics_to_plot and 'rainfall' not in df.columns)):
+            if not df.empty:
                 existing_other_metrics = [m for m in other_metrics if m in df.columns]
 
+                # Pastikan 'ch_pred' termasuk jika dipilih
                 if 'ch_pred' in metrics_to_plot and 'ch_pred' in df.columns and 'ch_pred' not in existing_other_metrics:
-                     existing_other_metrics.append('ch_pred') # Pastikan ch_pred termasuk jika dipilih
-
-                # Jika hanya ingin plot ch_pred (yang juga merupakan metrik)
-                if 'ch_pred' in metrics_to_plot and 'ch_pred' in df.columns and 'ch_pred' not in existing_other_metrics:
-                    existing_other_metrics.append('ch_pred')
-
+                     existing_other_metrics.append('ch_pred') 
 
                 if existing_other_metrics:
-                    # Hapus duplikat metrik dan pastikan kolom 'year' dan 'month' ada
                     cols_to_select = ['year', 'month'] + list(set(existing_other_metrics))
                     cols_to_select = [col for col in cols_to_select if col in df.columns]
                     
@@ -739,15 +738,6 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
                         value_name='Value'
                     )
                     dfs_to_plot.append(melted_df)
-                
-                # Jika 'rainfall' dipilih, pastikan tidak menambahkan duplikat dari model_name lain (sudah ditangani di atas)
-                if 'rainfall' in metrics_to_plot and not is_rainfall_selected and 'rainfall' in df.columns:
-                    rainfall_df = df[['year', 'month', 'rainfall']].copy()
-                    rainfall_df['model_name'] = 'Ground Truth'
-                    rainfall_df = rainfall_df.rename(columns={'rainfall': 'Value'})
-                    rainfall_df['Metric'] = 'rainfall'
-                    if 'Ground Truth' not in [d['model_name'] for d in dfs_to_plot]:
-                         dfs_to_plot.append(rainfall_df)
 
 
         if not dfs_to_plot:
