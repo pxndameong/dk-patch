@@ -3,6 +3,7 @@ import pandas as pd
 from io import BytesIO
 import os
 from itertools import product
+import numpy as np # Ditambahkan untuk operasi matematika jika ada missing value
 
 # Menghilangkan warning Streamlit Watchdog
 os.environ["STREAMLIT_WATCHDOG"] = "false"
@@ -13,7 +14,7 @@ st.title("📥 Download Data Mentah per Stasiun & Variabel")
 # --- 1. KONFIGURASI PATH & DATASET ---
 BASE_PATH_PRED_ROOT = "data/5k_epoch/pred" 
 
-# Info dataset yang akan dibandingkan (Pastikan prefix sesuai dengan nama file Anda)
+# Info dataset yang akan dibandingkan (Menggunakan konfigurasi yang Anda berikan)
 dataset_info = {
     "0 Variabel": {"path_suffix": "0_var", "prefix": "all_data_0var"},
     "0 Variabel (NEW)": {"path_suffix": "0_var_new", "prefix": "all_data_0var"},
@@ -67,8 +68,8 @@ def load_data(config, start_year, end_year):
             except Exception as e:
                 st.error(f"Gagal membaca file {file_path}: {e}")
         else:
-            # st.info(f"File tidak ditemukan: {file_path}") # Nonaktifkan info ini agar tidak terlalu banyak notifikasi
-            pass
+            # st.info(f"File tidak ditemukan: {file_path}") 
+            pass # Nonaktifkan notifikasi "File tidak ditemukan" agar tampilan tidak terlalu ramai
             
     if all_dfs:
         return pd.concat(all_dfs, ignore_index=True)
@@ -77,7 +78,7 @@ def load_data(config, start_year, end_year):
 
 df = load_data(selected_dataset_config, tahun_start, tahun_end)
 
-# --- 4. DEBUGGING DAN PEMBENTUKAN ID STASIUN (PERBAIKAN UTAMA) ---
+# --- 4. DEBUGGING DAN PEMBENTUKAN ID STASIUN ---
 st.markdown("---")
 st.subheader("💡 Status Pemuatan Data")
 
@@ -85,34 +86,41 @@ if df.empty:
     st.error("Data tidak ditemukan untuk pilihan Dataset & Rentang Tahun ini.")
     st.stop()
 
-# Memastikan kolom yang dibutuhkan ada
-REQUIRED_COLS = ['latitude', 'longitude']
-if not all(col in df.columns for col in REQUIRED_COLS):
+# Memastikan kolom ID stasiun ada
+REQUIRED_COLS_ID = ['latitude', 'longitude']
+if not all(col in df.columns for col in REQUIRED_COLS_ID):
     st.error(f"Kolom penting ('latitude' atau 'longitude') hilang. Kolom yang tersedia: {df.columns.tolist()}")
     st.stop()
     
-# *** MEMBUAT KOLOM 'ID_Stasiun' BARU ***
-# Menggabungkan latitude dan longitude menjadi satu string unik untuk Multiselect
-df['ID_Stasiun'] = 'Lat: ' + df['latitude'].astype(str) + ', Lon: ' + df['longitude'].astype(str)
-# Mengganti nama kolom untuk konsistensi di sisa kode
-df = df.rename(columns={'ID_Stasiun': 'stasiun'})
+# *** MEMBUAT KOLOM 'stasiun' DARI Lat/Lon ***
+df['stasiun'] = 'Lat: ' + df['latitude'].astype(str) + ', Lon: ' + df['longitude'].astype(str)
 
 st.success(f"Data berhasil dimuat. Total baris: {len(df):,}")
-st.info(f"Kolom 'stasiun' telah dibuat dari 'latitude' dan 'longitude'.")
-st.markdown(f"Kolom yang digunakan: `{', '.join(df.columns)}`")
+st.info(f"Kolom yang tersedia: **{len(df.columns)}** kolom. Variabel dipilih dari kolom non-ID/Temporal.")
 st.markdown("---")
 
 
 # --- 5. MULTI-SELECT STASIUN & VARIABEL ---
-# Sekarang kolom 'stasiun' sudah ada
+
+# Daftar Kolom yang dianggap sebagai Kolom ID/Temporal, dan harus DI-EXCLUDE dari Variabel Pilihan
+EXCLUDED_COLS = ['stasiun','tahun', 'longitude', 'latitude', 'year', 'month']
+
+# Kolom Variabel adalah semua kolom yang tersisa
+# Jika Anda tahu nama variabel input Anda (misal: 'Temp', 'RH'), Anda bisa memasukkannya secara eksplisit di sini
+var_options = [c for c in df.columns if c not in EXCLUDED_COLS]
+
+
+# Pilihan Stasiun
 stasiun_options = df['stasiun'].unique().tolist()
 default_stasiun = stasiun_options[:3] if stasiun_options else []
 selected_stasiun = st.multiselect("Pilih Stasiun (berdasarkan Lat/Lon):", stasiun_options, default=default_stasiun)
 
-# Variabel yang di-exclude adalah kolom baru kita, ditambah kolom temporal dan ID
-EXCLUDED_COLS = ['stasiun','tahun', 'longitude', 'latitude', 'year', 'month']
-var_options = [c for c in df.columns if c not in EXCLUDED_COLS]
-
+# Pilihan Variabel
+if not var_options:
+    st.error("Tidak ada kolom variabel yang dapat dipilih setelah menghilangkan kolom ID/Temporal.")
+    st.warning(f"Kolom yang terdeteksi sebagai ID/Temporal: {EXCLUDED_COLS}")
+    st.stop()
+    
 default_vars = var_options[:3] if var_options else []
 selected_vars = st.multiselect("Pilih Variabel:", var_options, default=default_vars)
 
@@ -125,9 +133,14 @@ if not selected_vars:
     st.stop()
 
 # --- 6. FUNGSI KONVERSI EXCEL & DOWNLOAD ---
+# Mengatasi error ModuleNotFoundError dengan memastikan openpyxl terinstal di requirements.txt
 def to_excel(df_input):
     output = BytesIO()
-    df_input.to_excel(output, index=False)
+    try:
+        df_input.to_excel(output, index=False)
+    except ImportError:
+        st.error("Error: Pustaka 'openpyxl' tidak ditemukan. Pastikan sudah terinstal (tambakan 'openpyxl' ke requirements.txt).")
+        st.stop()
     return output.getvalue()
 
 st.info(f"Jumlah file yang akan di-download: **{len(selected_stasiun) * len(selected_vars)}**")
@@ -138,13 +151,14 @@ for stasiun_name, var_name in product(selected_stasiun, selected_vars):
     # Memfilter data hanya berdasarkan stasiun yang dipilih
     df_filtered = df[df['stasiun'] == stasiun_name].copy()
     
-    # Memilih kolom untuk diekspor (hanya kolom yang relevan)
-    cols_to_export = ['tahun', 'longitude', 'latitude', var_name]
-    df_filtered = df_filtered[cols_to_export]
+    # Memilih kolom untuk diekspor
+    # Tambahkan 'year' dan 'month' agar pengguna tahu data tanggalnya
+    cols_to_export = ['tahun', 'year', 'month', 'longitude', 'latitude', var_name]
+    df_filtered = df_filtered[[c for c in cols_to_export if c in df_filtered.columns]]
     
     # Membersihkan nama file
     dataset_clean_name = dataset_name.replace(' ', '_').replace('(', '').replace(')', '')
-    stasiun_clean_name = stasiun_name.replace(':', '').replace('.', '_').replace(', ', '_')
+    stasiun_clean_name = stasiun_name.replace(':', '').replace('.', '_').replace(', ', '_').replace(' ', '')
     file_name = f"{dataset_clean_name}_{stasiun_clean_name}_{var_name}_{tahun_start}-{tahun_end}.xlsx"
     
     excel_data = to_excel(df_filtered)
