@@ -25,6 +25,7 @@ base_url_padanan = "data/5k_epoch/padanan" # Tetap sama
 dataset_info = {
     # Menyimpan path Suffix yang sesuai dengan folder yang dikonfirmasi
     "0 Variabel": {"path_suffix": "0_var", "prefix": "all_data_0var"},
+    "0 Variabel (NEW)": {"path_suffix": "0_var_new", "prefix": "all_data_0var"},
     "1 Variabel (W500_NEW)": {"path_suffix": "1_var_w500_new", "prefix": "all_data_1var"},
     "1 Variabel (W500_OLD)": {"path_suffix": "1_var_w500_old", "prefix": "all_data_1var_w500"}, 
     "10 Variabel": {"path_suffix": "10_var", "prefix": "all_data_10var"},
@@ -342,6 +343,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     bar_color_map = {
         'Ground Truth (Rainfall)': 'saddlebrown',
         'Prediksi (0 Variabel)': 'royalblue',
+        'Prediksi (0 Variabel (NEW))': 'navy',
         'Prediksi (1 Variabel (W500_NEW))': 'mediumvioletred',
         'Prediksi (1 Variabel (W500_OLD))': 'darkorange',
         'Prediksi (10 Variabel)': 'deeppink',
@@ -384,12 +386,13 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         st.error("❌ Tidak ada data prediksi yang cukup untuk membuat Scatter Plot.")
         return
 
-    fig_scatter, axes = plt.subplots(2, 3, figsize=(15, 10))
+    fig_scatter, axes = plt.subplots(2, 4, figsize=(20, 10))
     axes = axes.flatten() 
     plt.style.use('ggplot')
 
     scatter_color_map = {
         '0 Variabel': 'royalblue',
+        '0 Variabel (NEW)': 'navy',
         '1 Variabel (W500_NEW)': 'mediumvioletred',
         '1 Variabel (W500_OLD)': 'darkorange',
         '10 Variabel': 'deeppink',
@@ -688,6 +691,11 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
                 'error_bias (0 Variabel)': 'darkblue', 
                 'absolute_error (0 Variabel)': 'midnightblue',
                 'squared_error (0 Variabel)': 'navy', 
+
+                'ch_pred (0 Variabel (NEW))': 'navy',
+                'error_bias (0 Variabel (NEW))': 'mediumblue',
+                'absolute_error (0 Variabel (NEW))': 'blue',
+                'squared_error (0 Variabel (NEW))': 'dodgerblue',
                 
                 'ch_pred (1 Variabel (W500_NEW))': 'mediumvioletred',
                 'error_bias (1 Variabel (W500_NEW))': 'darkmagenta', 
