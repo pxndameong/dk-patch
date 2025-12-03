@@ -7,7 +7,7 @@ st.set_page_config(
 )
 
 st.title("Selamat Datang di Aplikasi DK Viewer!")
-st.write("Aplikasi ini dibuat untuk melihat data prediksi curah hujan di berbagai wilayah. 10k - 1var VIMFC")
+st.write("Aplikasi ini dibuat untuk melihat data prediksi curah hujan di berbagai wilayah. 5k")
 
 st.markdown("""
 Silakan pilih halaman dari menu di **sidebar** untuk mulai menjelajahi data:
