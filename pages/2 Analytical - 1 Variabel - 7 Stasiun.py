@@ -26,11 +26,11 @@ dataset_info = {
     # Menyimpan path Suffix yang sesuai dengan folder yang dikonfirmasi
     "0 Variabel": {"path_suffix": "0_var", "prefix": "all_data_0var"},
     "1 Variabel (W500_NEW)": {"path_suffix": "1_var_w500_new", "prefix": "all_data_1var"},
+    "1 Variabel (W500_OLD)": {"path_suffix": "1_var_w500_old", "prefix": "all_data_1var_w500"}, 
     "10 Variabel": {"path_suffix": "10_var", "prefix": "all_data_10var"},
+    "10 Variabel (NEW)": {"path_suffix": "10_var_new", "prefix": "all_data_10var"},
     "51 Variabel": {"path_suffix": "51_var", "prefix": "all_data_51var"},
 
-    # Perhatikan prefix untuk W500_OLD
-    "1 Variabel (W500_OLD)": {"path_suffix": "1_var_w500_old", "prefix": "all_data_1var_w500"}, 
 }
 
 bulan_dict = {
@@ -345,6 +345,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         'Prediksi (1 Variabel (W500_NEW))': 'mediumvioletred',
         'Prediksi (1 Variabel (W500_OLD))': 'darkorange',
         'Prediksi (10 Variabel)': 'deeppink',
+        'Prediksi (10 Variabel (NEW))': 'crimson',
         'Prediksi (51 Variabel)': 'forestgreen'
     }
 
@@ -383,7 +384,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         st.error("❌ Tidak ada data prediksi yang cukup untuk membuat Scatter Plot.")
         return
 
-    fig_scatter, axes = plt.subplots(1, max(1, num_models), figsize=(5 * max(1, num_models), 6)) 
+    plt.subplots(2, 3, figsize=(15, 10))
     plt.style.use('ggplot')
 
     scatter_color_map = {
@@ -391,6 +392,7 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
         '1 Variabel (W500_NEW)': 'mediumvioletred',
         '1 Variabel (W500_OLD)': 'darkorange',
         '10 Variabel': 'deeppink',
+        '10 Variabel (NEW)': 'crimson',
         '51 Variabel': 'forestgreen'
     }
 
@@ -700,6 +702,11 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
                 'error_bias (10 Variabel)': 'darkred', 
                 'absolute_error (10 Variabel)': 'crimson',
                 'squared_error (10 Variabel)': 'indianred', 
+
+                'ch_pred (10 Variabel (NEW))': 'crimson',
+                'error_bias (10 Variabel (NEW))': 'firebrick',
+                'absolute_error (10 Variabel (NEW))': 'lightcoral',
+                'squared_error (10 Variabel (NEW))': 'brown',
                 
                 'ch_pred (51 Variabel)': 'forestgreen',
                 'error_bias (51 Variabel)': 'darkgreen', 
