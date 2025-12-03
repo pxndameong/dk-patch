@@ -4,7 +4,7 @@ from io import BytesIO
 import os
 from itertools import product
 
-st.set_page_config(page_title="Download Data Multi", page_icon="📥", layout="wide")
+st.set_page_config(page_title="Download Data Source", page_icon="📥", layout="wide")
 st.title("📥 Download Data Mentah per Stasiun & Variabel")
 
 # --- KONFIGURASI DATA ---
