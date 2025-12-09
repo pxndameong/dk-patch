@@ -18,8 +18,8 @@ os.environ["STREAMLIT_WATCHDOG"] = "false"
 # --- DEKLARASI URL DASAR BARU DAN INFO DATASET ---
 # URL Dasar Utama (sesuaikan jika path root data/5k_epoch/pred berubah)
 # Asumsi path root adalah: 'data/5k_epoch/pred'
-BASE_PATH_PRED_ROOT = "data/5k_epoch/pred"
-base_url_padanan = "data9sta/5k_epoch/padanan" # Tetap sama
+BASE_PATH_PRED_ROOT = "data9sta/5k_epoch/pred"
+base_url_padanan = "data/5k_epoch/padanan" # Tetap sama
 ##
 # Info dataset yang akan dibandingkan (Menggabungkan Standar dan W500)
 dataset_info = {
@@ -402,11 +402,8 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
 
     scatter_color_map = {
         '0 Variabel': 'royalblue',
-        '0 Variabel (NEW)': 'navy',
-        '1 Variabel (W500_NEW)': 'mediumvioletred',
-        '1 Variabel (W500_OLD)': 'darkorange',
+        '1 Variabel': 'mediumvioletred',
         '10 Variabel': 'deeppink',
-        '10 Variabel (NEW)': 'crimson',
         '51 Variabel': 'forestgreen'
     }
 
