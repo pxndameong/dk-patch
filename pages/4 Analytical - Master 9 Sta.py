@@ -20,8 +20,7 @@ os.environ["STREAMLIT_WATCHDOG"] = "false"
 # Asumsi path root adalah: 'data/5k_epoch/pred'
 BASE_PATH_PRED_ROOT = "data9sta/5k_epoch/pred"
 base_url_padanan = "data/5k_epoch/padanan" # Tetap sama
-##
-# Info dataset yang akan dibandingkan (Menggabungkan Standar dan W500)
+
 dataset_info = {
     # Menyimpan path Suffix yang sesuai dengan folder yang dikonfirmasi
     "0 Variabel": {"path_suffix": "0_var", "prefix": "all_data_0var"},
