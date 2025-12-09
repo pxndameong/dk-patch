@@ -24,9 +24,12 @@ base_url_padanan = "data/5k_epoch/padanan" # Tetap sama
 # Info dataset yang akan dibandingkan (Menggabungkan Standar dan W500)
 dataset_info = {
     # Menyimpan path Suffix yang sesuai dengan folder yang dikonfirmasi
-    "0 Variabel": {"path_suffix": "0_var_new", "prefix": "all_data_0var"},
-    "1 Variabel": {"path_suffix": "1_var_w500_new", "prefix": "all_data_1var"},
-    "10 Variabel": {"path_suffix": "10_var_new", "prefix": "all_data_10var"},
+    "0 Variabel": {"path_suffix": "0_var", "prefix": "all_data_0var"},
+    "0 Variabel (NEW)": {"path_suffix": "0_var_new", "prefix": "all_data_0var"},
+    "1 Variabel (W500_NEW)": {"path_suffix": "1_var_w500_new", "prefix": "all_data_1var"},
+    "1 Variabel (W500_OLD)": {"path_suffix": "1_var_w500_old", "prefix": "all_data_1var_w500"}, 
+    "10 Variabel": {"path_suffix": "10_var", "prefix": "all_data_10var"},
+    "10 Variabel (NEW)": {"path_suffix": "10_var_new", "prefix": "all_data_10var"},
     "51 Variabel": {"path_suffix": "51_var", "prefix": "all_data_51var"},
 
 }
@@ -339,8 +342,11 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
     bar_color_map = {
         'Ground Truth (Rainfall)': 'saddlebrown',
         'Prediksi (0 Variabel)': 'royalblue',
-        'Prediksi (1 Variabel)': 'mediumvioletred',
+        'Prediksi (0 Variabel (NEW))': 'navy',
+        'Prediksi (1 Variabel (W500_NEW))': 'mediumvioletred',
+        'Prediksi (1 Variabel (W500_OLD))': 'darkorange',
         'Prediksi (10 Variabel)': 'deeppink',
+        'Prediksi (10 Variabel (NEW))': 'crimson',
         'Prediksi (51 Variabel)': 'forestgreen'
     }
 
@@ -400,8 +406,11 @@ def plot_comparative_charts_monthly(tahun_start: int, bulan_start: int, tahun_en
 
     scatter_color_map = {
         '0 Variabel': 'royalblue',
-        '1 Variabel': 'mediumvioletred',
+        '0 Variabel (NEW)': 'navy',
+        '1 Variabel (W500_NEW)': 'mediumvioletred',
+        '1 Variabel (W500_OLD)': 'darkorange',
         '10 Variabel': 'deeppink',
+        '10 Variabel (NEW)': 'crimson',
         '51 Variabel': 'forestgreen'
     }
 
@@ -747,15 +756,30 @@ if st.session_state.comparative_data and st.session_state.comparative_data.keys(
                 'absolute_error (0 Variabel)': 'midnightblue',
                 'squared_error (0 Variabel)': 'navy', 
 
-                'ch_pred (1 Variabel)': 'darkorange',
-                'error_bias (1 Variabel)': 'peru',
-                'absolute_error (1 Variabel)': 'chocolate',
-                'squared_error (1 Variabel)': 'sandybrown',
+                'ch_pred (0 Variabel (NEW))': 'navy',
+                'error_bias (0 Variabel (NEW))': 'mediumblue',
+                'absolute_error (0 Variabel (NEW))': 'blue',
+                'squared_error (0 Variabel (NEW))': 'dodgerblue',
+                
+                'ch_pred (1 Variabel (W500_NEW))': 'mediumvioletred',
+                'error_bias (1 Variabel (W500_NEW))': 'darkmagenta', 
+                'absolute_error (1 Variabel (W500_NEW))': 'purple',
+                'squared_error (1 Variabel (W500_NEW))': 'darkslategray',
+
+                'ch_pred (1 Variabel (W500_OLD))': 'darkorange',
+                'error_bias (1 Variabel (W500_OLD))': 'peru',
+                'absolute_error (1 Variabel (W500_OLD))': 'chocolate',
+                'squared_error (1 Variabel (W500_OLD))': 'sandybrown',
                 
                 'ch_pred (10 Variabel)': 'deeppink',
                 'error_bias (10 Variabel)': 'darkred', 
                 'absolute_error (10 Variabel)': 'crimson',
                 'squared_error (10 Variabel)': 'indianred', 
+
+                'ch_pred (10 Variabel (NEW))': 'crimson',
+                'error_bias (10 Variabel (NEW))': 'firebrick',
+                'absolute_error (10 Variabel (NEW))': 'lightcoral',
+                'squared_error (10 Variabel (NEW))': 'brown',
                 
                 'ch_pred (51 Variabel)': 'forestgreen',
                 'error_bias (51 Variabel)': 'darkgreen', 
