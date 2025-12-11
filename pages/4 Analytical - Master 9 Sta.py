@@ -153,9 +153,10 @@ def calculate_metrics(df: pd.DataFrame, actual_col: str, pred_col: str):
     ss_residual = np.sum((actual - pred)**2)
 
     if ss_total == 0:
-        r2 = 1.0 
+        r2 = np.nan  # atau 0
     else:
         r2 = 1 - (ss_residual / ss_total)
+
 
     return {'MAE': mae, 'RMSE': rmse, 'R2': r2}
 
